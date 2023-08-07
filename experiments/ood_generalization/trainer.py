@@ -8,7 +8,8 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.utils.data
-from tqdm import trange
+from tensorboardX import SummaryWriter
+from tqdm import tqdm, trange
 
 from experiments.backbone import CNNCifar, CNNTarget
 from experiments.ood_generalization.clients import GenBaseClients
@@ -104,13 +105,15 @@ logging.info(str(args))
 args.out_dir = (Path(args.save_path) / exp_name).as_posix()
 out_dir = save_experiment(args, None, return_out_dir=True, save_results=False)
 logging.info(out_dir)
+writer = SummaryWriter(out_dir)
 
 @torch.no_grad()
-def eval_model(global_model, client_ids, GPs, clients, split):
+def eval_model(global_model, client_ids, GPs, clients, split, ratio=1):
     results = defaultdict(lambda: defaultdict(list))
     global_model.eval()
-
-    for client_id in client_ids:
+    sampled_clients = np.random.choice(client_ids, int(len(client_ids) * ratio), replace=False)
+    pbar = tqdm(sampled_clients)
+    for client_id in pbar:
         is_first_iter = True
         running_loss, running_correct, running_samples = 0., 0., 0.
         if split == 'test':
@@ -173,6 +176,7 @@ clients = GenBaseClients(args.data_name, args.data_path, args.num_clients,
                        batch_size=args.batch_size,
                        args=args)
 client_num_classes = client_counts(args.num_clients)
+logging.info(f"[+] (train) Client num classes: \n{client_num_classes}")
 
 # NN
 if 'pfedgp' in args.env:
@@ -289,6 +293,7 @@ for step in step_iter:
         GPs[client_id].tree = None
 
     train_avg_loss /= num_samples
+    writer.add_scalar("train/loss", train_avg_loss, step)
 
     # average parameters
     for n, p in params.items():
@@ -297,14 +302,17 @@ for step in step_iter:
     net.load_state_dict(params)
 
     if (step + 1) % args.eval_every == 0 or (step + 1) == args.num_steps:
-        val_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="val")
+        ratio = 0.2
+        val_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="val", ratio=ratio)
         val_avg_loss, val_avg_acc = calc_metrics(val_results)
-        logging.info(f"(val) Step: {step + 1}, AVG Loss: {val_avg_loss:.4f},  AVG Acc Val: {val_avg_acc:.4f}")
+        logging.info(f"[+] (val, ratio={ratio}) Step: {step + 1}, AVG Loss: {val_avg_loss:.4f},  AVG Acc Val: {val_avg_acc:.4f}")
 
         results['val_avg_loss'].append(val_avg_loss)
         results['val_avg_acc'].append(val_avg_acc)
+        writer.add_scalar(f"val_{ratio}/loss", val_avg_loss, step)
+        writer.add_scalar(f"val_{ratio}/acc", val_avg_acc, step)
 
-logging.info(f"\n(train) loss: {train_avg_loss:.4f}")
+logging.info(f"\n[+] (train) loss: {train_avg_loss:.4f}")
 
 # ! save
 ckpt_path = os.path.join(out_dir, f"ckpt.pth")
@@ -319,6 +327,8 @@ logging.info(f"\n(test) Test Loss: {avg_test_loss:.4f}, Test Acc: {avg_test_acc:
 
 results['test_loss'].append(avg_test_loss)
 results['test_acc'].append(avg_test_acc)
+writer.add_scalar("test/loss", avg_test_loss, step)
+writer.add_scalar("test/acc", avg_test_acc, step)
 
 #########################
 # generalization to ood #
@@ -331,6 +341,7 @@ for alpha_gen in args.alpha_gen:
                            args=args)
 
     client_num_classes = client_counts(args.num_clients)
+    logging.info(f"[+] (ood, alpha={alpha_gen}) Client num classes: \n{client_num_classes}")
 
     # GPs
     GPs = torch.nn.ModuleList([])
@@ -341,4 +352,7 @@ for alpha_gen in args.alpha_gen:
     test_results = eval_model(net, range(args.num_novel_clients), GPs, clients, split="test")
     avg_test_loss, avg_test_acc = calc_metrics(test_results)
 
-    logging.info(f"Alpha: {alpha_gen:.3f}. Gen. Test Loss: {avg_test_loss:.4f}, Gen. Test Accuracy: {avg_test_acc:.4f}")
+    logging.info(f"[+] (ood, alpha={alpha_gen}) ood loss: {avg_test_loss}, ood acc: {avg_test_acc}")
+    writer.add_scalar(f"ood_{alpha_gen}/loss", avg_test_loss, step)
+    writer.add_scalar(f"ood_{alpha_gen}/acc", avg_test_acc, step)
+    

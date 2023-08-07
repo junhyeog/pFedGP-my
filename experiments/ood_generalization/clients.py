@@ -44,9 +44,9 @@ class GenBaseClients:
         self.std_train_data = (self.std_train_data / len(self.train_loaders)) ** 0.5
         self.std_val_data = (self.std_val_data / len(self.val_loaders)) ** 0.5
         self.std_test_data = (self.std_test_data / len(self.test_loaders)) ** 0.5
-        logging.info(f"[+] GenBaseClients: (train): total={self.total_train_data:}, mean={self.mean_train_data}, std={self.std_train_data}")
-        logging.info(f"[+] GenBaseClients: (val)  : total={self.total_val_data}, mean={self.mean_val_data}, std={self.std_val_data}")
-        logging.info(f"[+] GenBaseClients: (test) : total={self.total_test_data}, mean={self.mean_test_data}, std={self.std_test_data}")
+        logging.info(f"[+] GenBaseClients(alpha={self.alpha}): (train): total={self.total_train_data:}, mean={self.mean_train_data}, std={self.std_train_data}")
+        logging.info(f"[+] GenBaseClients(alpha={self.alpha}): (val)  : total={self.total_val_data}, mean={self.mean_val_data}, std={self.std_val_data}")
+        logging.info(f"[+] GenBaseClients(alpha={self.alpha}): (test) : total={self.total_test_data}, mean={self.mean_test_data}, std={self.std_test_data}")
 
     def __len__(self):
         return self.n_clients
