@@ -23,7 +23,7 @@ def requirements():
 
 
 setup(
-      name='pFedGP',
+      name='pFedGP_my',
       version='1.0.0',  # Required
       description='',  # Optional
       long_description='',  # Optional
@@ -31,7 +31,7 @@ setup(
       url='',  # Optional
       author='',  # Optional
       author_email='',  # Optional
-      packages=['pFedGP'],
+      packages=['pFedGP_my'],
       python_requires='>=3.7',
       install_requires=requirements()  # Optional
 )

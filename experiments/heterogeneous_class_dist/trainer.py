@@ -1,4 +1,5 @@
 import argparse
+import copy
 import json
 import logging
 from collections import OrderedDict, defaultdict
@@ -8,15 +9,14 @@ import numpy as np
 import torch
 import torch.utils.data
 from tqdm import trange
-import copy
-
-from pFedGP.Learner import pFedGPFullLearner
 
 from experiments.backbone import CNNTarget
-from experiments.heterogeneous_class_dist.clients import BaseClients
-from utils import get_device, set_logger, set_seed, detach_to_numpy, save_experiment, \
-                  print_calibration, calibration_search, offset_client_classes, calc_metrics
 from experiments.calibrate import ECELoss
+from experiments.heterogeneous_class_dist.clients import BaseClients
+from pFedGP_my.Learner import pFedGPFullLearner
+from utils import (calc_metrics, calibration_search, detach_to_numpy,
+                   get_device, offset_client_classes, print_calibration,
+                   save_experiment, set_logger, set_seed)
 
 parser = argparse.ArgumentParser(description="Personalized Federated Learning")
 

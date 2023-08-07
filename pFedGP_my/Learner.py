@@ -1,7 +1,9 @@
 import torch.nn as nn
-from pFedGP.tree import BinaryTreepFedGPFull, BinaryTreepFedGPIPData, \
-                        BinaryTreepFedGPIPCompute
+
+from pFedGP_my.tree import (BinaryTreepFedGPFull, BinaryTreepFedGPIPCompute,
+                            BinaryTreepFedGPIPData)
 from utils import *
+
 
 class Model(nn.Module):
     ###########################
