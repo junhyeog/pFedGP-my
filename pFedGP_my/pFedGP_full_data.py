@@ -69,6 +69,15 @@ class pFedGPFull(nn.Module):
             Y_test = y_c[perm][:k_fold] if i == 0 else torch.cat((Y_test, y_c[perm][:k_fold]), dim=0)
             X_train = X_c[perm][k_fold:] if i == 0 else torch.cat((X_train, X_c[perm][k_fold:]), dim=0)
             Y_train = y_c[perm][k_fold:] if i == 0 else torch.cat((Y_train, y_c[perm][k_fold:]), dim=0)
+        ### ! >>> fixed
+        if Y_test.size(0) == 0:
+            # use the first data point as test data
+            logging.info(f"[+] use the first data point as test data: X shape = {X.shape}, Y shape = {Y.shape}, unique_classes = {unique_classes}")
+            X_test = X_train[:1]
+            Y_test = Y_train[:1]
+            X_train = X_train[1:]
+            Y_train = Y_train[1:]
+        ### ! <<<
         return X_train, X_test, Y_train, Y_test
 
     def forward_mll(self, X, Y, to_print=True):

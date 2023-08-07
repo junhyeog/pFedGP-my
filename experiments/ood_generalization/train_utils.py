@@ -162,9 +162,8 @@ def get_data(dataset, num_users, ood_users, alpha):
     remove_test_only = False
     remove_train_only = False
     move_data = True
-    k = 4
-    ### 
-    # error table: default setting, cifar100_5.0, cifar100_0.5, cifar10_0.1
+    k = 1
+    ### error table: default setting, cifar100_5.0, cifar100_0.5, cifar10_0.1 (before fix train_test_split method)
     # remove_test_only: O, remove_train_only: O -> X, X, X, X
     # remove_test_only: O, remove_train_only: X -> O, X, X, X
     # remove_test_only: X, remove_train_only: O -> X, X, X, X
@@ -173,8 +172,14 @@ def get_data(dataset, num_users, ood_users, alpha):
     # move_data, k=1: -> X, X, X, X 
     # move_data, k=2: -> X, X, X, X 
     # move_data, k=3: -> ?, ?, ?, ?
-    # move_data, k=4: -> ?, ?, ?, ?
+    # move_data, k=4: -> X, X, X, X 
 
+    # after fix train_test_split method 
+    # move_data, k=1: -> O, O, O, O
+    # default setting: train 50148, test 9796
+    # cifar100_5.0   :
+    # cifar100_0.5   :  
+    # cifar10_0.1    : train 50229, test 9703
 
     total_users = num_users + ood_users
     if dataset == 'cifar10':

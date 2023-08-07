@@ -73,7 +73,7 @@ parser.add_argument('--outputscale-increase', type=str, default='constant',
 #############################
 parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
 parser.add_argument("--exp-name", type=str, default='', help="suffix for exp name")
-parser.add_argument("--eval-every", type=int, default=25, help="eval every X selected steps")
+parser.add_argument("--eval-every", type=int, default=50, help="eval every X selected steps")
 parser.add_argument("--save-path", type=str, default="./output/pFedGP", help="dir path for output file")  # change
 parser.add_argument("--seed", type=int, default=42, help="seed value")
 
@@ -312,6 +312,18 @@ for step in step_iter:
         writer.add_scalar(f"val_{ratio}/loss", val_avg_loss, step)
         writer.add_scalar(f"val_{ratio}/acc", val_avg_acc, step)
 
+
+
+        ### ! fixed >>> test ood user during training
+        ood_results = eval_model(net, range(args.num_novel_clients), GPs, clients, split="test")
+        avg_test_loss, avg_test_acc = calc_metrics(ood_results)
+
+        logging.info(f"[+] (ood, alpha={args.alpha}) ood loss: {avg_test_loss}, ood acc: {avg_test_acc}")
+        writer.add_scalar(f"ood_{args.alpha}/loss", avg_test_loss, step)
+        writer.add_scalar(f"ood_{args.alpha}/acc", avg_test_acc, step)
+        ### ! fixed <<<
+
+
 logging.info(f"\n[+] (train) loss: {train_avg_loss:.4f}")
 
 # ! save
@@ -353,7 +365,7 @@ for alpha_gen in args.alpha_gen:
     test_results = eval_model(net, range(args.num_novel_clients), GPs, clients, split="test")
     avg_test_loss, avg_test_acc = calc_metrics(test_results)
 
-    logging.info(f"[+] (ood, alpha={alpha_gen}) ood loss: {avg_test_loss}, ood acc: {avg_test_acc}")
-    writer.add_scalar(f"ood_{alpha_gen}/loss", avg_test_loss, step)
-    writer.add_scalar(f"ood_{alpha_gen}/acc", avg_test_acc, step)
+    logging.info(f"[+] (final_ood, alpha={alpha_gen}) ood loss: {avg_test_loss}, ood acc: {avg_test_acc}")
+    writer.add_scalar(f"final_ood_{alpha_gen}/loss", avg_test_loss, step)
+    writer.add_scalar(f"final_ood_{alpha_gen}/acc", avg_test_acc, step)
     

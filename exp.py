@@ -41,9 +41,15 @@ def make_cmds(run_file_name, params):
         return [" ".join(cmds)]
     else:
         raise NotImplementedError
-    
-# bs = 64
+
+# optimizer, wd
+
+# cifar10, bs = 64
 params = {
+    ### optinal
+    # "optimizer": ["sgd", "adam"],
+    "wd": [0.001, 0.0005, 0.0],
+    ### optinal
     "data-path": "../../datafolder",
     "save-path": "../output/pFedGP",
     "seed": "777",
@@ -53,14 +59,19 @@ params = {
     "data-name": ["cifar10"],
     "alpha": [0.1],
     "inner-steps" :[5], # 1 / 5
-    "lr": [0.03, 0.025, 0.02, 0.015, 0.01, 0.005], # 5e-2 / 0.03
+    "lr": [0.03, 0.025, 0.02, 0.015], # 5e-2 / 0.03
     "batch-size": [64], # 512 / 64
-
+    "exp-name": ["bmfl1"],
 }
+cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
+run(cmds, n=3, ilow=0, type=0, sleep=5)
 
-cmds = make_cmds("../trainer.py", params)
-
+# cifar100, bs = 64
 params = {
+    ### optinal
+    # "optimizer": ["sgd", "adam"],
+    # "wd": [0.001, 0.0005, 0.0],
+    ### optinal
     "data-path": "../../datafolder",
     "save-path": "../output/pFedGP",
     "seed": "777",
@@ -70,10 +81,9 @@ params = {
     "data-name": ["cifar100"],
     "alpha": [0.5, 5.0],
     "inner-steps" :[5], # 1 / 5
-    "lr": [0.03, 0.025, 0.02, 0.015, 0.01], # 5e-2 / 0.03
+    "lr": [0.03, 0.025, 0.02, 0.015], # 5e-2 / 0.03
     "batch-size": [64], # 512 / 64
+    "exp-name": ["bmfl1"],
 }
-
-cmds += make_cmds("../trainer.py", params)
-
-run(cmds, n=2, ilow=0, type=0, sleep=5)
+cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
+run(cmds, n=1, ilow=0, type=0, sleep=5)
