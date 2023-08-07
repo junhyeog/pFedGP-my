@@ -76,6 +76,8 @@ parser.add_argument("--eval-every", type=int, default=25, help="eval every X sel
 parser.add_argument("--save-path", type=str, default="./output/pFedGP", help="dir path for output file")  # change
 parser.add_argument("--seed", type=int, default=42, help="seed value")
 
+parser.add_argument("--env", type=str, default='pfedgp', choices=['pfedgp', 'bmfl'], help="experiment environment")
+
 args = parser.parse_args()
         
 set_logger()
@@ -84,13 +86,19 @@ set_seed(args.seed)
 device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
 num_classes = 10 if args.data_name == 'cifar10' else 100
 
-exp_name = f'pFedGP-OOD-Gen_{args.data_name}_num_clients_{args.num_clients}_seed_{args.seed}_' \
-           f'lr_{args.lr}_num_steps_{args.num_steps}_inner_steps_{args.inner_steps}_' \
-           f'objective_{args.objective}_predict_ratio_{args.predict_ratio}' \
-           f'_alpha_{args.alpha}_num_novel_{args.num_novel_clients}'
+# exp_name = f'pFedGP-OOD-Gen_{args.data_name}_num_clients_{args.num_clients}_seed_{args.seed}_' \
+#            f'lr_{args.lr}_num_steps_{args.num_steps}_inner_steps_{args.inner_steps}_' \
+#            f'objective_{args.objective}_predict_ratio_{args.predict_ratio}' \
+#            f'_alpha_{args.alpha}_num_novel_{args.num_novel_clients}'
 
-if args.exp_name != '':
-    exp_name += '_' + args.exp_name
+# if args.exp_name != '':
+#     exp_name += '_' + args.exp_name
+exp_name = f'{args.exp_name}_env:{args.env}_seed:{args.seed}_'
+exp_name += f'd:{args.data_name}_alpha:{args.alpha}_'
+exp_name += f'clients:{args.num_clients},{args.num_client_agg},{args.num_novel_clients}_'
+exp_name += f'T:{args.num_steps}_is:{args.inner_steps}_'
+exp_name += f'lr:{args.lr}_bs:{args.batch_size}_'
+
 
 logging.info(str(args))
 args.out_dir = (Path(args.save_path) / exp_name).as_posix()
