@@ -207,16 +207,8 @@ criteria = torch.nn.CrossEntropyLoss()
 # init metrics #
 ################
 last_eval = -1
-best_step = -1
-best_acc = -1
-test_best_based_on_step, test_best_min_based_on_step = -1, -1
-test_best_max_based_on_step, test_best_std_based_on_step = -1, -1
 step_iter = trange(args.num_steps)
 results = defaultdict(list)
-
-best_model = copy.deepcopy(net)
-best_labels_vs_preds_val = None
-best_val_loss = -1
 
 for step in step_iter:
 
@@ -294,27 +286,15 @@ for step in step_iter:
         val_avg_loss, val_avg_acc = calc_metrics(val_results)
         logging.info(f"Step: {step + 1}, AVG Loss: {val_avg_loss:.4f},  AVG Acc Val: {val_avg_acc:.4f}")
 
-        if best_acc < val_avg_acc:
-            best_val_loss = val_avg_loss
-            best_acc = val_avg_acc
-            best_step = step
-            best_model = copy.deepcopy(net)
-
         results['val_avg_loss'].append(val_avg_loss)
         results['val_avg_acc'].append(val_avg_acc)
-        results['best_step'].append(best_step)
-        results['best_val_acc'].append(best_acc)
 
-net = best_model
 test_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="test")
 avg_test_loss, avg_test_acc = calc_metrics(test_results)
 
-logging.info(f"\nStep: {step + 1}, Best Val Loss: {best_val_loss:.4f}, Best Val Acc: {best_acc:.4f}")
 logging.info(f"\nStep: {step + 1}, Test Loss: {avg_test_loss:.4f}, Test Acc: {avg_test_acc:.4f}")
 
 
-results['best_step'].append(best_step)
-results['best_val_acc'].append(best_acc)
 results['test_loss'].append(avg_test_loss)
 results['test_acc'].append(avg_test_acc)
 
@@ -337,6 +317,5 @@ for alpha_gen in args.alpha_gen:
 
     test_results = eval_model(net, range(args.num_novel_clients), GPs, clients, split="test")
     avg_test_loss, avg_test_acc = calc_metrics(test_results)
-    gen_best_test_acc = avg_test_acc
 
     logging.info(f"Alpha: {alpha_gen:.3f}. Gen. Test Loss: {avg_test_loss:.4f}, Gen. Test Accuracy: {avg_test_acc:.4f}")
