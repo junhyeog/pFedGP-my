@@ -50,9 +50,11 @@ params = {
     # "optimizer": ["sgd", "adam"],
     "wd": [0.001, 0.0005, 0.0],
     ### optinal
-    "data-path": "../../datafolder",
-    "save-path": "../output/pFedGP",
+    "data-path": "experiments/datafolder",
+    "save-path": "output/bmfl1",
+    "env": "bmfl",
     "seed": "777",
+    "num-steps": 1000,
     "num-clients": "130",
     "num-novel-clients": "30",
     "num-client-agg": "10",
@@ -64,7 +66,7 @@ params = {
     "exp-name": ["bmfl1"],
 }
 cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
-run(cmds, n=3, ilow=0, type=0, sleep=5)
+run(cmds, n=2, ilow=0, type=0, sleep=5)
 
 # cifar100, bs = 64
 params = {
@@ -72,16 +74,18 @@ params = {
     # "optimizer": ["sgd", "adam"],
     # "wd": [0.001, 0.0005, 0.0],
     ### optinal
-    "data-path": "../../datafolder",
-    "save-path": "../output/pFedGP",
+    "data-path": "experiments/datafolder",
+    "save-path": "output/bmfl1",
+    "env": "bmfl",
     "seed": "777",
+    "num-steps": 1000,
     "num-clients": "130",
     "num-novel-clients": "30",
     "num-client-agg": "10",
     "data-name": ["cifar100"],
     "alpha": [0.5, 5.0],
     "inner-steps" :[5], # 1 / 5
-    "lr": [0.03, 0.025, 0.02, 0.015], # 5e-2 / 0.03
+    "lr": [0.03, 0.025, 0.02], # 5e-2 / 0.03
     "batch-size": [64], # 512 / 64
     "exp-name": ["bmfl1"],
 }

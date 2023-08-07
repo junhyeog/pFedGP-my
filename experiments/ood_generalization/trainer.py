@@ -99,6 +99,7 @@ exp_name += f'd:{args.data_name}_alpha:{args.alpha}_'
 exp_name += f'clients:{args.num_clients},{args.num_client_agg},{args.num_novel_clients}_'
 exp_name += f'T:{args.num_steps}_is:{args.inner_steps}_'
 exp_name += f'lr:{args.lr}_bs:{args.batch_size}_'
+exp_name += f'optim:{args.optimizer}_wd:{args.wd}_'
 
 
 logging.info(str(args))
