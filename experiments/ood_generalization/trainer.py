@@ -10,7 +10,7 @@ import torch
 import torch.utils.data
 from tqdm import trange
 
-from experiments.backbone import CNNTarget
+from experiments.backbone import CNNCifar, CNNTarget
 from experiments.ood_generalization.clients import GenBaseClients
 from pFedGP_my.Learner import pFedGPFullLearner
 from utils import (calc_metrics, get_device, offset_client_classes,
@@ -174,7 +174,12 @@ clients = GenBaseClients(args.data_name, args.data_path, args.num_clients,
 client_num_classes = client_counts(args.num_clients)
 
 # NN
-net = CNNTarget(n_kernels=args.n_kernels, embedding_dim=args.embed_dim)
+if 'pfedgp' in args.env:
+    net = CNNTarget(n_kernels=args.n_kernels, embedding_dim=args.embed_dim)
+    logging.info(f'[+] Using CNNTarget(n_kernels={args.n_kernels}, embedding_dim={args.embed_dim})')
+elif 'bmfl' in args.env:
+    net = CNNCifar(embedding_dim=args.embed_dim)
+    logging.info(f'[+] Using CNNCifar(embedding_dim={args.embed_dim})')
 net = net.to(device)
 
 GPs = torch.nn.ModuleList([])
