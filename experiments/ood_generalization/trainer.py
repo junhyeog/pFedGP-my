@@ -23,7 +23,7 @@ parser = argparse.ArgumentParser(description="Personalized Federated Learning")
 #       Dataset Args        #
 #############################
 parser.add_argument(
-    "--data-name", type=str, default="cifar10", choices=['cifar10'],
+    "--data-name", type=str, default="cifar10", choices=['cifar10', 'cifar100'],
 )
 parser.add_argument("--data-path", type=str, default="../datafolder", help="dir path for CIFAR datafolder")
 parser.add_argument("--num-clients", type=int, default=100, help="number of simulated clients")
@@ -333,6 +333,7 @@ writer.add_scalar("test/acc", avg_test_acc, step)
 #########################
 # generalization to ood #
 #########################
+args.alpha_gen = [args.alpha]
 for alpha_gen in args.alpha_gen:
     clients = GenBaseClients(data_name=args.data_name, data_path=args.data_path, n_clients=args.num_clients,
                            n_gen_clients=args.num_novel_clients,

@@ -1,11 +1,13 @@
+import logging
 from collections import defaultdict
 
 import numpy as np
 import torch
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 from torchvision import transforms
-from torchvision.datasets import CIFAR100, CIFAR10
-from sklearn.model_selection import train_test_split
+from torchvision.datasets import CIFAR10, CIFAR100
+from train_utils import get_data
 
 
 def classes_per_node_dirichlet(labels_list, num_users, alpha):
@@ -60,62 +62,99 @@ def gen_data_split(labels_list, num_users, class_partitions):
     return user_data_idx
 
 
-def create_generalization_loaders(data_name, data_root, num_train_users, num_gen_users, bz, alpha: float = 10):
-    # get datasets and idxs of each split
-    train_dataset, test_dataset, train_idx, val_idx, test_idx = get_datasets(data_name, data_root)
-    # create train / novel nodes partitions
-    train_nodes_idx, novel_nodes_idx = idx_partition_per_group(
-        train_idx, val_idx, test_idx, novel_nodes_size=float(num_gen_users / (num_train_users + num_gen_users))
-    )
+def create_generalization_loaders(data_name, data_root, num_train_users, num_gen_users, bz, alpha: float = 10, args=None):
+    if 'pfedgp' in args.env:
+        logging.info(f'[+] create_generalization_loaders: env: {args.env} -> use pfedgp dataset')
+        # get datasets and idxs of each split
+        train_dataset, test_dataset, train_idx, val_idx, test_idx = get_datasets(data_name, data_root)
+        # create train / novel nodes partitions
+        train_nodes_idx, novel_nodes_idx = idx_partition_per_group(
+            train_idx, val_idx, test_idx, novel_nodes_size=float(num_gen_users / (num_train_users + num_gen_users))
+        )
 
-    # iterate over groups train/novel + different splits train/val/test
-    idx_user_split = [[[] for _ in range(3)] for _ in range(2)]
-    for g_id, g_nodes_split in enumerate((train_nodes_idx, novel_nodes_idx)):  # iterate over train / novel nodes
-        # g_nodes_split holds train/novel train/val/test indexes
-        n_users = num_train_users if g_id == 0 else num_gen_users
-        for split_id, s in enumerate(g_nodes_split):  # iterate over train/val/test splits
+        # iterate over groups train/novel + different splits train/val/test
+        idx_user_split = [[[] for _ in range(3)] for _ in range(2)]
+        for g_id, g_nodes_split in enumerate((train_nodes_idx, novel_nodes_idx)):  # iterate over train / novel nodes
+            # g_nodes_split holds train/novel train/val/test indexes
+            n_users = num_train_users if g_id == 0 else num_gen_users
+            for split_id, s in enumerate(g_nodes_split):  # iterate over train/val/test splits
 
-            # assuming train/val/test order
-            # check if split is test or not
-            if split_id != 2:
-                if isinstance(train_dataset.targets, list):
-                    labels_list = np.array(train_dataset.targets)
-                else:
-                    labels_list = train_dataset.targets
-                labels_list = labels_list[s]
+                # assuming train/val/test order
+                # check if split is test or not
+                if split_id != 2:
+                    if isinstance(train_dataset.targets, list):
+                        labels_list = np.array(train_dataset.targets)
+                    else:
+                        labels_list = train_dataset.targets
+                    labels_list = labels_list[s]
 
-            else:  # train / val case
-                if isinstance(test_dataset.targets, list):
-                    labels_list = np.array(test_dataset.targets)
-                else:
-                    labels_list = test_dataset.targets
-                labels_list = labels_list[s]
+                else:  # train / val case
+                    if isinstance(test_dataset.targets, list):
+                        labels_list = np.array(test_dataset.targets)
+                    else:
+                        labels_list = test_dataset.targets
+                    labels_list = labels_list[s]
 
-            if split_id == 0:
-                if g_id == 0:
-                    class_partitions = classes_per_node_dirichlet(labels_list, num_users=n_users, alpha=alpha)
-                else:
-                    alpha_gen = alpha
-                    class_partitions = classes_per_node_dirichlet(labels_list, num_users=n_users, alpha=alpha_gen)
-            labels_list_index = gen_data_split(labels_list, n_users, class_partitions)
-            idx_user_split[g_id][split_id].extend([np.array(s)[i] for i in labels_list_index])
+                if split_id == 0:
+                    if g_id == 0:
+                        class_partitions = classes_per_node_dirichlet(labels_list, num_users=n_users, alpha=alpha)
+                    else:
+                        alpha_gen = alpha
+                        class_partitions = classes_per_node_dirichlet(labels_list, num_users=n_users, alpha=alpha_gen)
+                labels_list_index = gen_data_split(labels_list, n_users, class_partitions)
+                idx_user_split[g_id][split_id].extend([np.array(s)[i] for i in labels_list_index])
 
-    # unite groups and create dataloaders
-    generalization_loaders = []
-    # change order of clientes - first 10 are novel clients
-    idx_user_split = idx_user_split[::-1]
-    for s_i in range(len(idx_user_split[0])):
-        loaders = []
-        if s_i != 2:
-            data = train_dataset
-        else:
-            data = test_dataset
-        for g_i in range(len(idx_user_split)):
-            for u_idx in idx_user_split[g_i][s_i]:
-                loaders.append(DataLoader(Subset(data, u_idx), bz, (s_i == 0)))
-        generalization_loaders.append(loaders)
-    return generalization_loaders
+        # unite groups and create dataloaders
+        generalization_loaders = []
+        # change order of clientes - first 10 are novel clients
+        idx_user_split = idx_user_split[::-1]
+        for s_i in range(len(idx_user_split[0])):
+            loaders = []
+            if s_i != 2:
+                data = train_dataset
+            else:
+                data = test_dataset
+            for g_i in range(len(idx_user_split)):
+                for u_idx in idx_user_split[g_i][s_i]:
+                    loaders.append(DataLoader(Subset(data, u_idx), bz, (s_i == 0), num_workers=4))
+            generalization_loaders.append(loaders)
+        return generalization_loaders
+    
+    elif 'bmfl' in args.env:
+        logging.info(f'[+] create_generalization_loaders: env: {args.env} -> use bmfl dataset')
+        idx_user_split = [[[] for _ in range(3)] for _ in range(2)]
+        dataset_train, dataset_test, dict_users_train, dict_users_test = get_data(data_name, num_train_users, num_gen_users, alpha)
+        train_dataset = dataset_train
+        test_dataset = dataset_test
 
+        # first group: participating clients
+        for i in range(num_train_users):
+            idx_user_split[0][0].append(dict_users_train[i])
+            idx_user_split[0][1].append(dict_users_test[i]) # ! use test for validation
+            idx_user_split[0][2].append(dict_users_test[i])
+            
+        # second group: non-participating clients
+        for i in range(num_gen_users):
+            idx_user_split[1][0].append(dict_users_train[num_train_users + i])
+            idx_user_split[1][1].append(dict_users_test[num_train_users + i]) # ! use test for validation
+            idx_user_split[1][2].append(dict_users_test[num_train_users + i])
+
+        # unite groups and create dataloaders
+        generalization_loaders = []
+        # change order of clientes - first 10 are novel clients # ! checked
+        idx_user_split = idx_user_split[::-1]
+        for s_i in range(len(idx_user_split[0])):
+            loaders = []
+            if s_i == 0: # train
+                data = train_dataset
+            else: # val/test
+                data = test_dataset
+            for g_i in range(len(idx_user_split)):
+                for u_idx in idx_user_split[g_i][s_i]:
+                    loaders.append(DataLoader(Subset(data, u_idx), bz, (s_i == 0), num_workers=4))
+            generalization_loaders.append(loaders)
+        return generalization_loaders
+        
 
 def idx_partition_per_group(train_idx, val_idx, test_idx, novel_nodes_size=0.2):
     train_nodes_idx, novel_nodes_idx = [], []

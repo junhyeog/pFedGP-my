@@ -28,7 +28,8 @@ class GenBaseClients:
             n_train_users,
             self.n_gen_nodes,
             self.batch_size,
-            self.alpha
+            self.alpha,
+            args=self.args,
         )
 
         # check total, mean, std data size
