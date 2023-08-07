@@ -170,7 +170,8 @@ def client_counts(num_clients, split='train'):
 clients = GenBaseClients(args.data_name, args.data_path, args.num_clients,
                        n_gen_clients=args.num_novel_clients,
                        alpha=args.alpha,
-                       batch_size=args.batch_size)
+                       batch_size=args.batch_size,
+                       args=args)
 client_num_classes = client_counts(args.num_clients)
 
 # NN
@@ -326,7 +327,8 @@ for alpha_gen in args.alpha_gen:
     clients = GenBaseClients(data_name=args.data_name, data_path=args.data_path, n_clients=args.num_clients,
                            n_gen_clients=args.num_novel_clients,
                            alpha=alpha_gen,
-                           batch_size=args.batch_size)
+                           batch_size=args.batch_size,
+                           args=args)
 
     client_num_classes = client_counts(args.num_clients)
 
