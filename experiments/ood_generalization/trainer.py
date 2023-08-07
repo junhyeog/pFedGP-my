@@ -1,6 +1,7 @@
 import argparse
 import copy
 import logging
+import os
 from collections import OrderedDict, defaultdict
 from pathlib import Path
 
@@ -284,16 +285,23 @@ for step in step_iter:
     if (step + 1) % args.eval_every == 0 or (step + 1) == args.num_steps:
         val_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="val")
         val_avg_loss, val_avg_acc = calc_metrics(val_results)
-        logging.info(f"Step: {step + 1}, AVG Loss: {val_avg_loss:.4f},  AVG Acc Val: {val_avg_acc:.4f}")
+        logging.info(f"(val) Step: {step + 1}, AVG Loss: {val_avg_loss:.4f},  AVG Acc Val: {val_avg_acc:.4f}")
 
         results['val_avg_loss'].append(val_avg_loss)
         results['val_avg_acc'].append(val_avg_acc)
 
+logging.info(f"\n(train) loss: {train_avg_loss:.4f}")
+
+# ! save
+ckpt_path = os.path.join(out_dir, f"ckpt.pth")
+torch.save({"args": args, "net":net.state_dict()}, ckpt_path)
+logging.info(f"[+] Saved checkpoint to {ckpt_path}")
+
+# ! test
 test_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="test")
 avg_test_loss, avg_test_acc = calc_metrics(test_results)
 
-logging.info(f"\nStep: {step + 1}, Test Loss: {avg_test_loss:.4f}, Test Acc: {avg_test_acc:.4f}")
-
+logging.info(f"\n(test) Test Loss: {avg_test_loss:.4f}, Test Acc: {avg_test_acc:.4f}")
 
 results['test_loss'].append(avg_test_loss)
 results['test_acc'].append(avg_test_acc)
