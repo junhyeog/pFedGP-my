@@ -290,3 +290,17 @@ def calc_metrics(results):
     avg_loss = np.mean([val['loss'] for val in results.values()])
     avg_acc = total_correct / total_samples
     return avg_loss, avg_acc
+
+def calc_weighted_metrics(results, client_data_size):
+    # Assert that the results and client_data_size have the same keys
+    
+    user_idxs = list(results.keys())
+    weights_size = []
+    for user_idx in user_idxs:
+        weights_size.append(client_data_size[user_idx])
+    weights = np.array(weights_size) / sum(weights_size)
+        
+    avg_loss = np.average([results[user_idx]['loss'] for user_idx in user_idxs], weights=weights)
+    avg_acc = np.average([results[user_idx]['correct'] / results[user_idx]['total'] for user_idx in user_idxs], weights=weights)
+    
+    return avg_loss, avg_acc

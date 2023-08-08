@@ -14,7 +14,7 @@ from tqdm import tqdm, trange
 from experiments.backbone import CNNCifar, CNNTarget
 from experiments.ood_generalization.clients import GenBaseClients
 from pFedGP_my.Learner import pFedGPFullLearner
-from utils import (calc_metrics, get_device, offset_client_classes,
+from utils import (calc_metrics, calc_weighted_metrics, get_device, offset_client_classes,
                    save_experiment, set_logger, set_seed, str2bool)
 
 parser = argparse.ArgumentParser(description="Personalized Federated Learning")
@@ -171,12 +171,33 @@ def client_counts(num_clients, split='train'):
         client_num_classes[client_id] = client_labels.shape[0]
     return client_num_classes
 
+def client_counts_data(num_clients, split='train'):
+    client_num_data = {}
+    for client_id in range(num_clients):
+        if split == 'test':
+            curr_data = clients.test_loaders[client_id]
+        elif split == 'val':
+            curr_data = clients.val_loaders[client_id]
+        else:
+            curr_data = clients.train_loaders[client_id]
+
+        cnt = 0
+        for i, batch in enumerate(curr_data):
+            cnt += batch[0].shape[0]
+
+        client_num_data[client_id] = cnt
+    return client_num_data
+
 clients = GenBaseClients(args.data_name, args.data_path, args.num_clients,
                        n_gen_clients=args.num_novel_clients,
                        alpha=args.alpha,
                        batch_size=args.batch_size,
                        args=args)
 client_num_classes = client_counts(args.num_clients)
+client_datas_size_train= client_counts_data(args.num_clients, 'train')
+client_datas_size_val= client_counts_data(args.num_clients, 'val')
+client_datas_size_test= client_counts_data(args.num_clients, 'test')
+
 logging.info(f"[+] (train) Client num classes: \n{client_num_classes}")
 
 # NN
@@ -306,22 +327,32 @@ for step in step_iter:
         ratio = 0.2
         val_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="val", ratio=ratio)
         val_avg_loss, val_avg_acc = calc_metrics(val_results)
+        val_avg_loss_weighted, val_avg_acc_weighted = calc_weighted_metrics(val_results, client_datas_size_val)
         logging.info(f"[+] (val, ratio={ratio}) Step: {step + 1}, AVG Loss: {val_avg_loss:.4f},  AVG Acc Val: {val_avg_acc:.4f}")
+        logging.info(f"[+] (val, ratio={ratio}) Step: {step + 1}, Weighted Loss: {val_avg_loss_weighted:.4f},  Weighted Acc Val: {val_avg_acc_weighted:.4f}")
 
         results['val_avg_loss'].append(val_avg_loss)
         results['val_avg_acc'].append(val_avg_acc)
+        results['val_avg_loss_weighted'].append(val_avg_loss_weighted)
+        results['val_avg_acc_weighted'].append(val_avg_acc_weighted)
         writer.add_scalar(f"val_{ratio}/loss", val_avg_loss, step)
         writer.add_scalar(f"val_{ratio}/acc", val_avg_acc, step)
+        writer.add_scalar(f"val_{ratio}/loss_weighted", val_avg_loss_weighted, step)
+        writer.add_scalar(f"val_{ratio}/acc_weighted", val_avg_acc_weighted, step)
 
 
 
         ### ! fixed >>> test ood user during training
         ood_results = eval_model(net, range(args.num_novel_clients), GPs, clients, split="test")
         avg_test_loss, avg_test_acc = calc_metrics(ood_results)
+        avg_test_loss_weighted, avg_test_acc_weighted = calc_weighted_metrics(ood_results, client_datas_size_test)
 
         logging.info(f"[+] (ood, alpha={args.alpha}) ood loss: {avg_test_loss}, ood acc: {avg_test_acc}")
+        logging.info(f"[+] (ood, alpha={args.alpha}) ood loss weighted: {avg_test_loss_weighted}, ood acc weighted: {avg_test_acc_weighted}")
         writer.add_scalar(f"ood_{args.alpha}/loss", avg_test_loss, step)
         writer.add_scalar(f"ood_{args.alpha}/acc", avg_test_acc, step)
+        writer.add_scalar(f"ood_{args.alpha}/loss_weighted", avg_test_loss_weighted, step)
+        writer.add_scalar(f"ood_{args.alpha}/acc_weighted", avg_test_acc_weighted, step)
         ### ! fixed <<<
 
 
@@ -365,8 +396,12 @@ for alpha_gen in args.alpha_gen:
 
     test_results = eval_model(net, range(args.num_novel_clients), GPs, clients, split="test")
     avg_test_loss, avg_test_acc = calc_metrics(test_results)
+    avg_test_loss_weighted, avg_test_acc_weighted = calc_weighted_metrics(test_results, client_datas_size_test)
 
     logging.info(f"[+] (final_ood, alpha={alpha_gen}) ood loss: {avg_test_loss}, ood acc: {avg_test_acc}")
+    logging.info(f"[+] (final_ood, alpha={alpha_gen}) ood loss weighted: {avg_test_loss_weighted}, ood acc weighted: {avg_test_acc_weighted}")
     writer.add_scalar(f"final_ood_{alpha_gen}/loss", avg_test_loss, step)
     writer.add_scalar(f"final_ood_{alpha_gen}/acc", avg_test_acc, step)
-    
+    writer.add_scalar(f"final_ood_{alpha_gen}/loss_weighted", avg_test_loss_weighted, step)
+    writer.add_scalar(f"final_ood_{alpha_gen}/acc_weighted", avg_test_acc_weighted, step)
+    writer.flush()
