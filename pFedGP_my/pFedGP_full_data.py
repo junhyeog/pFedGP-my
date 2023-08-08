@@ -73,10 +73,18 @@ class pFedGPFull(nn.Module):
         if Y_test.size(0) == 0:
             # use the first data point as test data
             logging.info(f"[+] use the first data point as test data: X shape = {X.shape}, Y shape = {Y.shape}, unique_classes = {unique_classes}")
+            # type 1. move one data point from train to test 
             X_test = X_train[:1]
             Y_test = Y_train[:1]
             X_train = X_train[1:]
             Y_train = Y_train[1:]
+            
+            # type 2. move random one data point from train to test <- maybe not have to do because X and Y is shuffled
+            # idx = torch.randint(0, X_train.size(0), (1,))
+            # X_test = X_train[idx]
+            # Y_test = Y_train[idx]
+            # X_train = torch.cat((X_train[:idx], X_train[idx+1:]), dim=0)
+            # Y_train = torch.cat((Y_train[:idx], Y_train[idx+1:]), dim=0)
         ### ! <<<
         return X_train, X_test, Y_train, Y_test
 

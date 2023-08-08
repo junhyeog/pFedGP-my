@@ -155,24 +155,29 @@ def dirichlet_distribution_noniid_slice(label, client_num, alpha, min_size=1, pr
 
 # <<< data split from pFL-Bench
 def get_data(dataset, num_users, ood_users, alpha):
+    # type 0:
     # remove_test_only = False
     # remove_train_only = True
     # move_data = False
+    # copy_data = False
 
-    remove_test_only = False
-    remove_train_only = False
-    move_data = True
-    k = 1
     ### error table: default setting, cifar100_5.0, cifar100_0.5, cifar10_0.1 (before fix train_test_split method)
     # remove_test_only: O, remove_train_only: O -> X, X, X, X
     # remove_test_only: O, remove_train_only: X -> O, X, X, X
     # remove_test_only: X, remove_train_only: O -> X, X, X, X
     # remove_test_only: X, remove_train_only: X -> ?, ?, ?, ?
-
+    
     # move_data, k=1: -> X, X, X, X 
     # move_data, k=2: -> X, X, X, X 
     # move_data, k=3: -> ?, ?, ?, ?
     # move_data, k=4: -> X, X, X, X 
+
+    # type 1:
+    remove_test_only = False
+    remove_train_only = False
+    move_data = True
+    copy_data = False
+    k = 1
 
     ### after fix train_test_split method 
     # move_data, k=1: -> O, O, O, O
@@ -180,6 +185,12 @@ def get_data(dataset, num_users, ood_users, alpha):
     # cifar100_5.0   : train 50002, test 9984
     # cifar100_0.5   : train 50581, test 8419 
     # cifar10_0.1    : train 50229, test 9703
+    
+    # type 2:
+    # remove_test_only = False
+    # remove_train_only = False
+    # move_data = False
+    # copy_data = True
 
     total_users = num_users + ood_users
     if dataset == 'cifar10':
@@ -197,7 +208,7 @@ def get_data(dataset, num_users, ood_users, alpha):
     dict_users_train = dirichlet_distribution_noniid_slice(targets_train, total_users, alpha)
     dict_users_test = dirichlet_distribution_noniid_slice(targets_test, total_users, alpha)
 
-    logging.info(f"total original data size: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
+    logging.info(f"[+] total original data size: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
     
     if remove_test_only:
         # remove test only classes from test set
@@ -220,10 +231,10 @@ def get_data(dataset, num_users, ood_users, alpha):
             # check if there is any class that is in test and not in train set
             for c in test_classes:
                 if c not in train_classes:
-                    logging.info(f"test class {c} is not in train set")
-                    raise ValueError(f"test class {c} is not in train set")
+                    logging.info(f"[!] test class {c} is not in train set")
+                    raise ValueError(f"[!] test class {c} is not in train set")
 
-        print(f"total data size after remove test only classes: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
+        logging.info(f"[+] total data size after remove test only classes: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
     
     if remove_train_only:
         # remove train only classes from train set
@@ -246,9 +257,9 @@ def get_data(dataset, num_users, ood_users, alpha):
             # check if there is any class that is in train and not in test set
             for c in train_classes:
                 if c not in test_classes:
-                    logging.info(f"train class {c} is not in test set")
-                    raise ValueError(f"train class {c} is not in test set")
-        print(f"total data size after remove train only classes: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
+                    logging.info(f"[!] train class {c} is not in test set")
+                    raise ValueError(f"[!] train class {c} is not in test set")
+        logging.info(f"[+] total data size after remove train only classes: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
 
     if move_data:
         # 1. merge train and test set into one dataset (merged_dataset)
@@ -303,10 +314,55 @@ def get_data(dataset, num_users, ood_users, alpha):
             # check if there is any class that is in test and not in train set
             for c in test_classes:
                 if c not in train_classes:
-                    logging.info(f"test class {c} is not in train set")
-                    raise ValueError(f"test class {c} is not in train set")
+                    logging.info(f"[!] test class {c} is not in train set")
+                    raise ValueError(f"[!] test class {c} is not in train set")
                 
-        print(f"total data size after move data: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
+        logging.info(f"[+] total data size after move data: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
+
+    if copy_data:
+        merged_dataset = torch.utils.data.ConcatDataset([dataset_train, dataset_test])
+        merged_targets = np.concatenate((targets_train, targets_test), axis=0)
+        merged_dataset.targets = merged_targets
+        dict_users_test_orig = copy.deepcopy(dict_users_test)
+        for user_idx in range(total_users):
+            dict_users_test[user_idx] = dict_users_test[user_idx] + len(dataset_train)
+
+        # check merged dataset
+        for user_idx in range(total_users):
+            dict_user_orig = dict_users_test_orig[user_idx]
+            dict_user = dict_users_test[user_idx]
+            for idx_orig, idx in zip(dict_user_orig, dict_user):
+                assert torch.allclose(dataset_test[idx_orig][0], merged_dataset[idx][0])
+                assert dataset_test[idx_orig][1] == merged_dataset[idx][1]
+
+        for user_idx in range(total_users):
+            user_targets_train = merged_targets[dict_users_train[user_idx]]
+            user_targets_test = merged_targets[dict_users_test[user_idx]]
+            train_classes = np.unique(user_targets_train)
+            test_classes = np.unique(user_targets_test)
+            test_only = np.setdiff1d(test_classes, train_classes, assume_unique=True)
+            for test_only_class in test_only:
+                idxs = np.array([merged_targets[idx] == test_only_class for idx in dict_users_test[user_idx]])
+                test_only_class_idxs = dict_users_test[user_idx][idxs] # dataset idx
+                random_idxs = np.random.choice(test_only_class_idxs, 1, replace=False) # dataset idx
+                dict_users_train[user_idx] = np.append(dict_users_train[user_idx], random_idxs)
+        
+        dataset_train = merged_dataset
+        dataset_test = merged_dataset
+        
+        # check if there is any class only in train or test set
+        for user in range(total_users):
+            user_targets_train = np.array(dataset_train.targets)[dict_users_train[user]]
+            user_targets_test = np.array(dataset_test.targets)[dict_users_test[user]]
+            train_classes = np.unique(user_targets_train)
+            test_classes = np.unique(user_targets_test)
+            # check if there is any class that is in test and not in train set
+            for c in test_classes:
+                if c not in train_classes:
+                    logging.info(f"t[!] est class {c} is not in train set")
+                    raise ValueError(f"[!] test class {c} is not in train set")
+                
+        logging.info(f"[+] total data size after copy data: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
 
     return dataset_train, dataset_test, dict_users_train, dict_users_test        
 
