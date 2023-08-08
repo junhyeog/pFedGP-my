@@ -123,7 +123,7 @@ def create_generalization_loaders(data_name, data_root, num_train_users, num_gen
     elif 'bmfl' in args.env:
         logging.info(f'[+] create_generalization_loaders: env: {args.env} -> use bmfl dataset')
         idx_user_split = [[[] for _ in range(3)] for _ in range(2)]
-        dataset_train, dataset_test, dict_users_train, dict_users_test = get_data(data_name, num_train_users, num_gen_users, alpha)
+        dataset_train, dataset_test, dict_users_train, dict_users_test = get_data(data_name, num_train_users, num_gen_users, alpha, args=args)
         train_dataset = dataset_train
         test_dataset = dataset_test
 

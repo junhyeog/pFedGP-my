@@ -78,6 +78,7 @@ parser.add_argument("--save-path", type=str, default="./output/pFedGP", help="di
 parser.add_argument("--seed", type=int, default=42, help="seed value")
 
 parser.add_argument("--env", type=str, default='pfedgp', choices=['pfedgp', 'bmfl'], help="experiment environment")
+parser.add_argument("--get-data-type", type=int, default=1)
 
 args = parser.parse_args()
         
@@ -100,6 +101,7 @@ exp_name += f'clients:{args.num_clients},{args.num_client_agg},{args.num_novel_c
 exp_name += f'T:{args.num_steps}_is:{args.inner_steps}_'
 exp_name += f'lr:{args.lr}_bs:{args.batch_size}_'
 exp_name += f'optim:{args.optimizer}_wd:{args.wd}_'
+exp_name += f'gdt:{args.get_data_type}_'
 
 
 logging.info(str(args))
@@ -298,9 +300,19 @@ for step in step_iter:
             loss *= args.loss_scaler
 
             # propagate loss
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(curr_global_net.parameters(), 50)
-            optimizer.step()
+            #### >>> original code
+            # loss.backward()
+            # torch.nn.utils.clip_grad_norm_(curr_global_net.parameters(), 50)
+            # optimizer.step()
+            ### <<<
+            ### ! >>> fixed
+            if isinstance(loss, float):
+                loss = torch.tensor(loss)
+            else:
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(curr_global_net.parameters(), 50)
+                optimizer.step()
+            ### ! <<<
 
             train_avg_loss += loss.item() * offset_labels.shape[0]
             num_samples += offset_labels.shape[0]

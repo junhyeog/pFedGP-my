@@ -72,7 +72,7 @@ class pFedGPFull(nn.Module):
         ### ! >>> fixed
         if Y_test.size(0) == 0:
             # use the first data point as test data
-            logging.info(f"[+] use the first data point as test data: X shape = {X.shape}, Y shape = {Y.shape}, unique_classes = {unique_classes}")
+            # logging.info(f"[+] use the first data point as test data: X shape = {X.shape}, Y shape = {Y.shape}, unique_classes = {unique_classes}")
             # type 1. move one data point from train to test 
             X_test = X_train[:1]
             Y_test = Y_train[:1]

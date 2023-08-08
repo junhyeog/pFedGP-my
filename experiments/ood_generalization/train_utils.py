@@ -154,7 +154,8 @@ def dirichlet_distribution_noniid_slice(label, client_num, alpha, min_size=1, pr
     return dict_users # idx_slice
 
 # <<< data split from pFL-Bench
-def get_data(dataset, num_users, ood_users, alpha):
+def get_data(dataset, num_users, ood_users, alpha, args=None):
+    get_data_type = getattr(args, 'get_data_type', 1)
     # type 0:
     # remove_test_only = False
     # remove_train_only = True
@@ -172,25 +173,33 @@ def get_data(dataset, num_users, ood_users, alpha):
     # move_data, k=3: -> ?, ?, ?, ?
     # move_data, k=4: -> X, X, X, X 
 
-    # type 1:
-    remove_test_only = False
-    remove_train_only = False
-    move_data = True
-    copy_data = False
-    k = 1
+    # type 1: move
+    if get_data_type == 1:
+        remove_test_only = False
+        remove_train_only = False
+        move_data = True
+        copy_data = False
+        k = 1
 
-    ### after fix train_test_split method 
-    # move_data, k=1: -> O, O, O, O
-    # default setting: train 50148, test 9796
-    # cifar100_5.0   : train 50002, test 9984
-    # cifar100_0.5   : train 50581, test 8419 
-    # cifar10_0.1    : train 50229, test 9703
+        ### after fix train_test_split method 
+        # move_data, k=1: -> O, O, O, O
+        # default setting: train 50148, test 9796
+        # cifar100_5.0   : train 50002, test 9984
+        # cifar100_0.5   : train 50581, test 8419 
+        # cifar10_0.1    : train 50229, test 9703
     
-    # type 2:
-    # remove_test_only = False
-    # remove_train_only = False
-    # move_data = False
-    # copy_data = True
+    # type 2: copy
+    elif get_data_type == 2:
+        remove_test_only = False
+        remove_train_only = False
+        move_data = False
+        copy_data = True
+        
+        ### 
+        # cifar100_5.0   : 
+        # cifar100_0.5   : 
+        # cifar10_0.1    : train 50297, test 10000
+        
 
     total_users = num_users + ood_users
     if dataset == 'cifar10':
