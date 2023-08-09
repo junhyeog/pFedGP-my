@@ -117,13 +117,239 @@ def make_cmds(run_file_name, params):
 
 
 ### @2023-08-08: original dataset & get_data_type == 2 converge test in cifar10
+# params = {
+#     ### optinal
+#     # "optimizer": ["sgd", "adam"],
+#     # "wd": [0.001, 0.0005, 0.0],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/bmfl2",
+#     "env": "bmfl",
+#     "seed": "777",
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     "data-name": ["cifar10"],
+#     "alpha": [0.1],
+#     "inner-steps" :[5], # 1 / 5
+#     "lr": [0.03], # 5e-2 / 0.03
+#     "batch-size": [64], # 512 / 64
+#     "exp-name": ["bmfl2"],
+#     "get-data-type": [2],
+# }
+# cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
+# run(cmds, n=1, ilow=0, type=0, sleep=5)
+
+# params = {
+#     ### optinal
+#     # "optimizer": ["sgd", "adam"],
+#     # "wd": [0.001, 0.0005, 0.0],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/pfedgp1",
+#     "env": "pfedgp",
+#     "seed": "777",
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     "data-name": ["cifar10"],
+#     "alpha": [0.1],
+#     "inner-steps" :[5], # 1 / 5
+#     "lr": [0.03], # 5e-2 / 0.03
+#     "batch-size": [64], # 512 / 64
+#     "exp-name": ["pfedgp1"],
+#     "get-data-type": [2],
+# }
+# cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
+# run(cmds, n=1, ilow=0, type=0, sleep=5)
+
+
+### @2023-08-09: original dataset & get_data_type == 2 & inner step 1, 3 converge test in cifar10
+
+# params = {
+#     ### optinal
+#     # "optimizer": ["sgd", "adam"],
+#     # "wd": [0.001, 0.0005, 0.0],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/bmfl2",
+#     "env": "bmfl",
+#     "seed": "777",
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     "data-name": ["cifar10"],
+#     "alpha": [0.1],
+#     "inner-steps" :[1, 3], # 1 / 5
+#     "lr": [0.03], # 5e-2 / 0.03
+#     "batch-size": [64, 512], # 512 / 64
+#     "exp-name": ["bmfl2"],
+#     "get-data-type": [2],
+# }
+# cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
+# run(cmds, n=1, ilow=1, type=0, sleep=5)
+
+
+# params = {
+#     ### optinal
+#     # "optimizer": ["sgd", "adam"],
+#     # "wd": [0.001, 0.0005, 0.0],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/pfedgp1",
+#     "env": "pfedgp",
+#     # "seed": "777",
+#     # "num-steps": 1000,
+#     # "num-clients": 130,
+#     # "num-novel-clients": 30,
+#     # "num-client-agg": 10,
+#     "data-name": ["cifar10"],
+#     "alpha": [0.1],
+#     "inner-steps" :[1, 3], # 1 / 5
+#     "lr": [0.03, 0.05], # 5e-2 / 0.03
+#     "batch-size": [64], # 512 / 64
+#     "exp-name": ["pfedgp1"],
+#     "get-data-type": [2],
+# }
+# cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
+# run(cmds, n=1, ilow=0, type=0, sleep=5)
+
+# ! trainer_orig
+
+# params = {
+#     ### optinal
+#     # "optimizer": ["sgd", "adam"],
+#     # "wd": [0.001, 0.0005, 0.0],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/bmfl_orig1",
+#     "env": "bmfl",
+#     "seed": "777",
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     "data-name": ["cifar10"],
+#     "alpha": [0.1],
+#     "inner-steps" :[1, 5], # 1 / 5
+#     "lr": [0.03], # 5e-2 / 0.03
+#     "batch-size": [64], # 512 / 64
+#     "exp-name": ["bmfl_orig1"],
+#     "get-data-type": [2],
+# }
+# cmds = make_cmds("experiments/ood_generalization/trainer_orig.py", params)
+# run(cmds, n=2, ilow=0, type=0, sleep=5)
+
+
+# params = {
+#     ### optinal
+#     # "optimizer": ["sgd", "adam"],
+#     # "wd": [0.001, 0.0005, 0.0],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/pfedgp_orig1",
+#     "env": "pfedgp",
+#     # "seed": "777",
+#     # "num-steps": 1000,
+#     # "num-clients": 130,
+#     # "num-novel-clients": 30,
+#     # "num-client-agg": 10,
+#     "data-name": ["cifar10"],
+#     "alpha": [0.1],
+#     # "inner-steps" :[1, 3], # 1 / 5
+#     # "lr": [0.03, 0.05], # 5e-2 / 0.03
+#     # "batch-size": [64], # 512 / 64
+#     "exp-name": ["pfedgp_orig1"],
+#     "get-data-type": [2],
+# }
+# cmds = make_cmds("experiments/ood_generalization/trainer_orig.py", params)
+# # run(cmds, n=1, ilow=0, type=0, sleep=5)
+
+# params = {
+#     ### optinal
+#     # "optimizer": ["sgd", "adam"],
+#     # "wd": [0.001, 0.0005, 0.0],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/pfedgp_orig1",
+#     "env": "pfedgp",
+#     "seed": "777",
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     "data-name": ["cifar10"],
+#     "alpha": [0.1],
+#     "inner-steps" :[1, 5], # 1 / 5
+#     "lr": [0.03], # 5e-2 / 0.03
+#     "batch-size": [64], # 512 / 64
+#     "exp-name": ["pfedgp_orig1"],
+#     "get-data-type": [2],
+# }
+# cmds += make_cmds("experiments/ood_generalization/trainer_orig.py", params)
+# run(cmds, n=3, ilow=0, type=0, sleep=5)
+
+# ! return to trainer  -> bmfl10, pfedgp10
+
+# params = {
+#     ### optinal
+#     "optimizer": ["sgd"],
+#     "wd": [0.0],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/bmfl10",
+#     "env": "bmfl",
+#     "seed": "777",
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     "data-name": ["cifar10"],
+#     "alpha": [0.1],
+#     "inner-steps" :[1, 3, 5], # 1 / 5
+#     "lr": [0.03, 0.025, 0.02], # 5e-2 / 0.03
+#     "batch-size": [64], # 512 / 64
+#     "exp-name": ["bmfl10"],
+#     "get-data-type": [2],
+# }
+# cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
+# run(cmds, n=1, ilow=0, type=0, sleep=5)
+
+
+# params = {
+#     ### optinal
+#     "optimizer": ["sgd"],
+#     "wd": [0.0],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/pfedgp10",
+#     "env": "pfedgp",
+#     "seed": "777",
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     "data-name": ["cifar10"],
+#     "alpha": [0.1],
+#     "inner-steps" :[1, 5], # 1 / 5
+#     "lr": [0.03], # 5e-2 / 0.03
+#     "batch-size": [64], # 512 / 64
+#     "exp-name": ["pfedgp10"],
+#     "get-data-type": [2],
+# }
+# cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
+# run(cmds, n=1, ilow=0, type=0, sleep=5)
+
 params = {
     ### optinal
-    # "optimizer": ["sgd", "adam"],
-    # "wd": [0.001, 0.0005, 0.0],
+    "optimizer": ["sgd"],
+    "wd": [0.0],
     ### optinal
     "data-path": "experiments/datafolder",
-    "save-path": "output/bmfl2",
+    "save-path": "output/bmfl10",
     "env": "bmfl",
     "seed": "777",
     "num-steps": 1000,
@@ -132,35 +358,11 @@ params = {
     "num-client-agg": 10,
     "data-name": ["cifar10"],
     "alpha": [0.1],
-    "inner-steps" :[5], # 1 / 5
-    "lr": [0.03], # 5e-2 / 0.03
+    "inner-steps" :[1, 3, 5], # 1 / 5
+    "lr": [0.03, 0.025, 0.02], # 5e-2 / 0.03
     "batch-size": [64], # 512 / 64
-    "exp-name": ["bmfl2"],
-    "get-data-type": [2],
+    "exp-name": ["bmfl10"],
+    "get-data-type": [1],
 }
 cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
-run(cmds, n=1, ilow=0, type=0, sleep=5)
-
-params = {
-    ### optinal
-    # "optimizer": ["sgd", "adam"],
-    # "wd": [0.001, 0.0005, 0.0],
-    ### optinal
-    "data-path": "experiments/datafolder",
-    "save-path": "output/pfedgp1",
-    "env": "pfedgp",
-    "seed": "777",
-    "num-steps": 1000,
-    "num-clients": 130,
-    "num-novel-clients": 30,
-    "num-client-agg": 10,
-    "data-name": ["cifar10"],
-    "alpha": [0.1],
-    "inner-steps" :[5], # 1 / 5
-    "lr": [0.03], # 5e-2 / 0.03
-    "batch-size": [64], # 512 / 64
-    "exp-name": ["pfedgp1"],
-    "get-data-type": [2],
-}
-cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
-run(cmds, n=1, ilow=0, type=0, sleep=5)
+run(cmds, n=1, ilow=1, type=0, sleep=5)

@@ -202,6 +202,9 @@ client_datas_size_val= client_counts_data(args.num_clients, 'val')
 client_datas_size_test= client_counts_data(args.num_clients, 'test')
 
 logging.info(f"[+] (train) Client num classes: \n{client_num_classes}")
+logging.info(f"[+] (train) Client data size: \n{client_datas_size_train}")
+logging.info(f"[+] (val) Client data size: \n{client_datas_size_val}")
+logging.info(f"[+] (test) Client data size: \n{client_datas_size_test}")
 
 # NN
 if 'pfedgp' in args.env:
@@ -337,7 +340,7 @@ for step in step_iter:
     net.load_state_dict(params)
 
     if (step + 1) % args.eval_every == 0 or (step + 1) == args.num_steps:
-        ratio = 0.2
+        ratio = 1
         val_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="val", ratio=ratio)
         val_avg_loss, val_avg_acc = calc_metrics(val_results)
         val_avg_loss_weighted, val_avg_acc_weighted = calc_weighted_metrics(val_results, client_datas_size_val)
@@ -366,7 +369,7 @@ for step in step_iter:
         writer.add_scalar(f"ood_{args.alpha}/acc", avg_test_acc, step)
         writer.add_scalar(f"ood_{args.alpha}/loss_weighted", avg_test_loss_weighted, step)
         writer.add_scalar(f"ood_{args.alpha}/acc_weighted", avg_test_acc_weighted, step)
-        ### ! fixed <<<
+        ### ! <<<
 
 
 logging.info(f"\n[+] (train) loss: {train_avg_loss:.4f}")
@@ -405,7 +408,9 @@ for alpha_gen in args.alpha_gen:
                            args=args)
 
     client_num_classes = client_counts(args.num_clients)
+    client_datas_size_test= client_counts_data(args.num_clients, 'test')
     logging.info(f"[+] (ood, alpha={alpha_gen}) Client num classes: \n{client_num_classes}")
+    logging.info(f"[+] (ood, alpha={alpha_gen}) Client datas size test: \n{client_datas_size_test}")
 
     # GPs
     GPs = torch.nn.ModuleList([])
@@ -413,14 +418,30 @@ for alpha_gen in args.alpha_gen:
         # GP instance
         GPs.append(pFedGPFullLearner(args, client_num_classes[client_id]))
 
-    test_results = eval_model(net, range(args.num_novel_clients), GPs, clients, split="test")
-    avg_test_loss, avg_test_acc = calc_metrics(test_results)
-    avg_test_loss_weighted, avg_test_acc_weighted = calc_weighted_metrics(test_results, client_datas_size_test)
+    ood_results = eval_model(net, range(args.num_novel_clients), GPs, clients, split="test")
+    avg_ood_loss, avg_ood_acc = calc_metrics(ood_results)
+    avg_ood_loss_weighted, avg_ood_acc_weighted = calc_weighted_metrics(ood_results, client_datas_size_test)
 
-    logging.info(f"[+] (final_ood, alpha={alpha_gen}) ood loss: {avg_test_loss}, ood acc: {avg_test_acc}")
-    logging.info(f"[+] (final_ood, alpha={alpha_gen}) ood loss weighted: {avg_test_loss_weighted}, ood acc weighted: {avg_test_acc_weighted}")
-    writer.add_scalar(f"final_ood_{alpha_gen}/loss", avg_test_loss, step)
-    writer.add_scalar(f"final_ood_{alpha_gen}/acc", avg_test_acc, step)
-    writer.add_scalar(f"final_ood_{alpha_gen}/loss_weighted", avg_test_loss_weighted, step)
-    writer.add_scalar(f"final_ood_{alpha_gen}/acc_weighted", avg_test_acc_weighted, step)
+    logging.info(f"[+] (final_ood, alpha={alpha_gen}) ood loss: {avg_ood_loss}, ood acc: {avg_ood_acc}")
+    logging.info(f"[+] (final_ood, alpha={alpha_gen}) ood loss weighted: {avg_ood_loss_weighted}, ood acc weighted: {avg_ood_acc_weighted}")
+    writer.add_scalar(f"final_ood_{alpha_gen}/loss", avg_ood_loss, step)
+    writer.add_scalar(f"final_ood_{alpha_gen}/acc", avg_ood_acc, step)
+    writer.add_scalar(f"final_ood_{alpha_gen}/loss_weighted", avg_ood_loss_weighted, step)
+    writer.add_scalar(f"final_ood_{alpha_gen}/acc_weighted", avg_ood_acc_weighted, step)
     writer.flush()
+
+    # ! test
+    final_test_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="test")
+    avg_test_loss, avg_test_acc = calc_metrics(final_test_results)
+    avg_test_loss_weighted, avg_test_acc_weighted = calc_weighted_metrics(final_test_results, client_datas_size_test)
+
+    logging.info(f"\n(final_test) Test Loss: {avg_test_loss:.4f}, Test Acc: {avg_test_acc:.4f}")
+    logging.info(f"\n(final_test) Test Loss Weighted: {avg_test_loss_weighted:.4f}, Test Acc Weighted: {avg_test_acc_weighted:.4f}")
+
+    writer.add_scalar("final_test/loss", avg_test_loss, step)
+    writer.add_scalar("final_test/acc", avg_test_acc, step)
+    writer.add_scalar("final_test/loss_weighted", avg_test_loss_weighted, step)
+    writer.add_scalar("final_test/acc_weighted", avg_test_acc_weighted, step)
+    writer.flush()
+    
+

@@ -1,19 +1,22 @@
 import argparse
 import copy
 import logging
+import os
 from collections import OrderedDict, defaultdict
 from pathlib import Path
 
 import numpy as np
 import torch
 import torch.utils.data
-from pFedGP.Learner import pFedGPFullLearner
-from tqdm import trange
+from tensorboardX import SummaryWriter
+from tqdm import tqdm, trange
 
-from experiments.backbone import CNNTarget
+from experiments.backbone import CNNCifar, CNNTarget
 from experiments.ood_generalization.clients import GenBaseClients
-from utils import (calc_metrics, get_device, offset_client_classes,
-                   save_experiment, set_logger, set_seed, str2bool)
+from pFedGP_my.Learner import pFedGPFullLearner
+from utils import (calc_metrics, calc_weighted_metrics, get_device,
+                   offset_client_classes, save_experiment, set_logger,
+                   set_seed, str2bool)
 
 parser = argparse.ArgumentParser(description="Personalized Federated Learning")
 
@@ -75,6 +78,8 @@ parser.add_argument("--eval-every", type=int, default=25, help="eval every X sel
 parser.add_argument("--save-path", type=str, default="./output/pFedGP", help="dir path for output file")  # change
 parser.add_argument("--seed", type=int, default=42, help="seed value")
 
+parser.add_argument("--env", type=str, default='pfedgp', choices=['pfedgp', 'bmfl'], help="experiment environment")
+parser.add_argument("--get-data-type", type=int, default=1)
 args = parser.parse_args()
         
 set_logger()
@@ -83,18 +88,20 @@ set_seed(args.seed)
 device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
 num_classes = 10 if args.data_name == 'cifar10' else 100
 
-exp_name = f'pFedGP-OOD-Gen_{args.data_name}_num_clients_{args.num_clients}_seed_{args.seed}_' \
-           f'lr_{args.lr}_num_steps_{args.num_steps}_inner_steps_{args.inner_steps}_' \
-           f'objective_{args.objective}_predict_ratio_{args.predict_ratio}' \
-           f'_alpha_{args.alpha}_num_novel_{args.num_novel_clients}'
 
-if args.exp_name != '':
-    exp_name += '_' + args.exp_name
+exp_name = f'{args.exp_name}_env:{args.env}_seed:{args.seed}_'
+exp_name += f'd:{args.data_name}_alpha:{args.alpha}_'
+exp_name += f'clients:{args.num_clients},{args.num_client_agg},{args.num_novel_clients}_'
+exp_name += f'T:{args.num_steps}_is:{args.inner_steps}_'
+exp_name += f'lr:{args.lr}_bs:{args.batch_size}_'
+exp_name += f'optim:{args.optimizer}_wd:{args.wd}_'
+exp_name += f'gdt:{args.get_data_type}_'
 
 logging.info(str(args))
 args.out_dir = (Path(args.save_path) / exp_name).as_posix()
 out_dir = save_experiment(args, None, return_out_dir=True, save_results=False)
 logging.info(out_dir)
+writer = SummaryWriter(out_dir)
 
 @torch.no_grad()
 def eval_model(global_model, client_ids, GPs, clients, split):
@@ -158,15 +165,44 @@ def client_counts(num_clients, split='train'):
         client_num_classes[client_id] = client_labels.shape[0]
     return client_num_classes
 
+def client_counts_data(num_clients, split='train'):
+    client_num_data = {}
+    for client_id in range(num_clients):
+        if split == 'test':
+            curr_data = clients.test_loaders[client_id]
+        elif split == 'val':
+            curr_data = clients.val_loaders[client_id]
+        else:
+            curr_data = clients.train_loaders[client_id]
+
+        cnt = 0
+        for i, batch in enumerate(curr_data):
+            cnt += batch[0].shape[0]
+
+        client_num_data[client_id] = cnt
+    return client_num_data
+
 clients = GenBaseClients(args.data_name, args.data_path, args.num_clients,
                        n_gen_clients=args.num_novel_clients,
                        alpha=args.alpha,
-                       batch_size=args.batch_size)
+                       batch_size=args.batch_size,
+                       args=args)
 client_num_classes = client_counts(args.num_clients)
+client_datas_size_train= client_counts_data(args.num_clients, 'train')
+client_datas_size_val= client_counts_data(args.num_clients, 'val')
+client_datas_size_test= client_counts_data(args.num_clients, 'test')
+
+logging.info(f"[+] (train) Client num classes: \n{client_num_classes}")
 
 # NN
-net = CNNTarget(n_kernels=args.n_kernels, embedding_dim=args.embed_dim)
+if 'pfedgp' in args.env:
+    net = CNNTarget(n_kernels=args.n_kernels, embedding_dim=args.embed_dim)
+    logging.info(f'[+] Using CNNTarget(n_kernels={args.n_kernels}, embedding_dim={args.embed_dim})')
+elif 'bmfl' in args.env:
+    net = CNNCifar(embedding_dim=args.embed_dim)
+    logging.info(f'[+] Using CNNCifar(embedding_dim={args.embed_dim})')
 net = net.to(device)
+
 
 GPs = torch.nn.ModuleList([])
 for client_id in range(args.num_clients):
@@ -265,9 +301,19 @@ for step in step_iter:
             loss *= args.loss_scaler
 
             # propagate loss
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(curr_global_net.parameters(), 50)
-            optimizer.step()
+            #### >>> original code
+            # loss.backward()
+            # torch.nn.utils.clip_grad_norm_(curr_global_net.parameters(), 50)
+            # optimizer.step()
+            ### <<<
+            ### ! >>> fixed
+            if isinstance(loss, float):
+                loss = torch.tensor(loss)
+            else:
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(curr_global_net.parameters(), 50)
+                optimizer.step()
+            ### ! <<<
 
             train_avg_loss += loss.item() * offset_labels.shape[0]
             num_samples += offset_labels.shape[0]
@@ -282,6 +328,7 @@ for step in step_iter:
         GPs[client_id].tree = None
 
     train_avg_loss /= num_samples
+    writer.add_scalar("train/loss", train_avg_loss, step)
 
     # average parameters
     for n, p in params.items():
@@ -290,9 +337,12 @@ for step in step_iter:
     net.load_state_dict(params)
 
     if (step + 1) % args.eval_every == 0 or (step + 1) == args.num_steps:
+        ratio=1
         val_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="val")
         val_avg_loss, val_avg_acc = calc_metrics(val_results)
-        logging.info(f"Step: {step + 1}, AVG Loss: {val_avg_loss:.4f},  AVG Acc Val: {val_avg_acc:.4f}")
+        val_avg_loss_weighted, val_avg_acc_weighted = calc_weighted_metrics(val_results, client_datas_size_val)
+        logging.info(f"[+] (val, ratio={ratio}) Step: {step + 1}, AVG Loss: {val_avg_loss:.4f},  AVG Acc Val: {val_avg_acc:.4f}")
+        logging.info(f"[+] (val, ratio={ratio}) Step: {step + 1}, Weighted Loss: {val_avg_loss_weighted:.4f},  Weighted Acc Val: {val_avg_acc_weighted:.4f}")
 
         if best_acc < val_avg_acc:
             best_val_loss = val_avg_loss
@@ -302,32 +352,54 @@ for step in step_iter:
 
         results['val_avg_loss'].append(val_avg_loss)
         results['val_avg_acc'].append(val_avg_acc)
-        results['best_step'].append(best_step)
-        results['best_val_acc'].append(best_acc)
+        results['val_avg_loss_weighted'].append(val_avg_loss_weighted)
+        results['val_avg_acc_weighted'].append(val_avg_acc_weighted)
+        writer.add_scalar(f"val_{ratio}/loss", val_avg_loss, step)
+        writer.add_scalar(f"val_{ratio}/acc", val_avg_acc, step)
+        writer.add_scalar(f"val_{ratio}/loss_weighted", val_avg_loss_weighted, step)
+        writer.add_scalar(f"val_{ratio}/acc_weighted", val_avg_acc_weighted, step)
 
-net = best_model
+
+logging.info(f"\n[+] (train) loss: {train_avg_loss:.4f}")
+
+# ! save
+ckpt_path = os.path.join(out_dir, f"ckpt.pth")
+torch.save({"args": args, "net":net.state_dict()}, ckpt_path)
+logging.info(f"[+] Saved checkpoint to {ckpt_path}")
+
+# ! test
+# net = best_model # !!!!!!!!!!!!!!!!!!!!!
 test_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="test")
 avg_test_loss, avg_test_acc = calc_metrics(test_results)
+avg_test_loss_weighted, avg_test_acc_weighted = calc_weighted_metrics(test_results, client_datas_size_test)
 
-logging.info(f"\nStep: {step + 1}, Best Val Loss: {best_val_loss:.4f}, Best Val Acc: {best_acc:.4f}")
-logging.info(f"\nStep: {step + 1}, Test Loss: {avg_test_loss:.4f}, Test Acc: {avg_test_acc:.4f}")
+logging.info(f"\n(test) Test Loss: {avg_test_loss:.4f}, Test Acc: {avg_test_acc:.4f}")
+logging.info(f"\n(test) Test Loss Weighted: {avg_test_loss_weighted:.4f}, Test Acc Weighted: {avg_test_acc_weighted:.4f}")
 
-
-results['best_step'].append(best_step)
-results['best_val_acc'].append(best_acc)
 results['test_loss'].append(avg_test_loss)
 results['test_acc'].append(avg_test_acc)
+results['test_loss_weighted'].append(avg_test_loss_weighted)
+results['test_acc_weighted'].append(avg_test_acc_weighted)
+writer.add_scalar("test/loss", avg_test_loss, step)
+writer.add_scalar("test/acc", avg_test_acc, step)
+writer.add_scalar("test/loss_weighted", avg_test_loss_weighted, step)
+writer.add_scalar("test/acc_weighted", avg_test_acc_weighted, step)
+
+
 
 #########################
 # generalization to ood #
 #########################
+args.alpha_gen = [args.alpha]
 for alpha_gen in args.alpha_gen:
     clients = GenBaseClients(data_name=args.data_name, data_path=args.data_path, n_clients=args.num_clients,
                            n_gen_clients=args.num_novel_clients,
                            alpha=alpha_gen,
-                           batch_size=args.batch_size)
+                           batch_size=args.batch_size,
+                           args=args)
 
     client_num_classes = client_counts(args.num_clients)
+    logging.info(f"[+] (ood, alpha={alpha_gen}) Client num classes: \n{client_num_classes}")
 
     # GPs
     GPs = torch.nn.ModuleList([])
@@ -337,6 +409,12 @@ for alpha_gen in args.alpha_gen:
 
     test_results = eval_model(net, range(args.num_novel_clients), GPs, clients, split="test")
     avg_test_loss, avg_test_acc = calc_metrics(test_results)
-    gen_best_test_acc = avg_test_acc
+    avg_test_loss_weighted, avg_test_acc_weighted = calc_weighted_metrics(test_results, client_datas_size_test)
 
-    logging.info(f"Alpha: {alpha_gen:.3f}. Gen. Test Loss: {avg_test_loss:.4f}, Gen. Test Accuracy: {avg_test_acc:.4f}")
+    logging.info(f"[+] (final_ood, alpha={alpha_gen}) ood loss: {avg_test_loss}, ood acc: {avg_test_acc}")
+    logging.info(f"[+] (final_ood, alpha={alpha_gen}) ood loss weighted: {avg_test_loss_weighted}, ood acc weighted: {avg_test_acc_weighted}")
+    writer.add_scalar(f"final_ood_{alpha_gen}/loss", avg_test_loss, step)
+    writer.add_scalar(f"final_ood_{alpha_gen}/acc", avg_test_acc, step)
+    writer.add_scalar(f"final_ood_{alpha_gen}/loss_weighted", avg_test_loss_weighted, step)
+    writer.add_scalar(f"final_ood_{alpha_gen}/acc_weighted", avg_test_acc_weighted, step)
+    writer.flush()
