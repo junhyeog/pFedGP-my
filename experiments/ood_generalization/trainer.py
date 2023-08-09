@@ -14,8 +14,9 @@ from tqdm import tqdm, trange
 from experiments.backbone import CNNCifar, CNNTarget
 from experiments.ood_generalization.clients import GenBaseClients
 from pFedGP_my.Learner import pFedGPFullLearner
-from utils import (calc_metrics, calc_weighted_metrics, get_device, offset_client_classes,
-                   save_experiment, set_logger, set_seed, str2bool)
+from utils import (calc_metrics, calc_weighted_metrics, get_device,
+                   offset_client_classes, save_experiment, set_logger,
+                   set_seed, str2bool)
 
 parser = argparse.ArgumentParser(description="Personalized Federated Learning")
 
@@ -378,13 +379,19 @@ logging.info(f"[+] Saved checkpoint to {ckpt_path}")
 # ! test
 test_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="test")
 avg_test_loss, avg_test_acc = calc_metrics(test_results)
+avg_test_loss_weighted, avg_test_acc_weighted = calc_weighted_metrics(test_results, client_datas_size_test)
 
 logging.info(f"\n(test) Test Loss: {avg_test_loss:.4f}, Test Acc: {avg_test_acc:.4f}")
+logging.info(f"\n(test) Test Loss Weighted: {avg_test_loss_weighted:.4f}, Test Acc Weighted: {avg_test_acc_weighted:.4f}")
 
 results['test_loss'].append(avg_test_loss)
 results['test_acc'].append(avg_test_acc)
+results['test_loss_weighted'].append(avg_test_loss_weighted)
+results['test_acc_weighted'].append(avg_test_acc_weighted)
 writer.add_scalar("test/loss", avg_test_loss, step)
 writer.add_scalar("test/acc", avg_test_acc, step)
+writer.add_scalar("test/loss_weighted", avg_test_loss_weighted, step)
+writer.add_scalar("test/acc_weighted", avg_test_acc_weighted, step)
 
 #########################
 # generalization to ood #
