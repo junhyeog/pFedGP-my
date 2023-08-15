@@ -343,13 +343,142 @@ def make_cmds(run_file_name, params):
 # cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
 # run(cmds, n=1, ilow=0, type=0, sleep=5)
 
+# params = {
+#     ### optinal
+#     "optimizer": ["sgd"],
+#     "wd": [0.0],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/bmfl10",
+#     "env": "bmfl",
+#     "seed": "777",
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     "data-name": ["cifar10"],
+#     "alpha": [0.1],
+#     "inner-steps" :[1,  5], # 1 / 5
+#     "lr": [0.03, 0.025, 0.02], # 5e-2 / 0.03
+#     "batch-size": [64], # 512 / 64
+#     "exp-name": ["bmfl10"],
+#     "get-data-type": [1],
+# }
+# cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
+# run(cmds, n=1, ilow=1, type=0, sleep=5)
+
+# params = {
+#     ### optinal
+#     "optimizer": ["sgd"],
+#     "wd": [0.0],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/bmfl10",
+#     "env": "bmfl",
+#     "seed": "777",
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     "data-name": ["cifar100"],
+#     "alpha": [5.0,0.5],
+#     "inner-steps" :[5], # 1 / 5
+#     "lr": [0.03, 0.025, 0.02], # 5e-2 / 0.03
+#     "batch-size": [64], # 512 / 64
+#     "exp-name": ["bmfl10"],
+#     "get-data-type": [2],
+# }
+# cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
+# run(cmds, n=1, ilow=0, type=0, sleep=5)
+
+
+# !   -> bmfl21, pfedgp21 : classes_per_node_dirichlet's set seed block & pfedgp1~pfedgp3
+
+# params = {
+#     ### optinal
+#     "optimizer": ["sgd"],
+#     "wd": [0.0],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/bmfl21",
+#     "env": "bmfl",
+#     "seed": "777",
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     "data-name": ["cifar10"],
+#     "alpha": [0.1],
+#     "inner-steps": [1, 3, 5],  # 1 / 5
+#     "lr": [0.03],  # 5e-2 / 0.03
+#     "batch-size": [64],  # 512 / 64
+#     "exp-name": ["bmfl21"],
+#     "get-data-type": [2],
+# }
+# cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
+# run(cmds, n=1, ilow=0, type=0, sleep=5)
+
+
+# params = {
+#     ### optinal
+#     "optimizer": ["sgd"],
+#     "wd": [0.0],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/pfedgp21",
+#     "env": ["pfedgp", "pfedgp1", "pfedgp2", "pfedgp3"],
+#     "seed": "777",
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     "data-name": ["cifar10"],
+#     "alpha": [0.1],
+#     "inner-steps": [1, 3, 5],  # 1 / 5
+#     "lr": [0.03],  # 5e-2 / 0.03
+#     "batch-size": [64],  # 512 / 64
+#     "exp-name": ["pfedgp21"],
+#     "get-data-type": [2],
+# }
+# cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
+# run(cmds, n=1, ilow=0, type=0, sleep=5)
+
+# ! @2023-08-15 pfedgp_retuttal1: 반박용 -> 논문 세팅과 동일하게
+
+# params = {
+#     ### optinal
+#     "optimizer": ["sgd"],
+#     "wd": [0.001],
+#     ### optinal
+#     "data-path": "experiments/datafolder",
+#     "save-path": "output/pfedgp_retuttal1",
+#     "env": ["pfedgp", "pfedgp1", "pfedgp2", "pfedgp3"],
+#     "seed": [777, 666],
+#     "num-steps": 1000,
+#     "num-clients": 100,
+#     "num-novel-clients": 10,
+#     "num-client-agg": 5,
+#     "data-name": ["cifar10"],
+#     "alpha": [0.1],
+#     "inner-steps": [1],  # 1 / 5
+#     "lr": [0.05],  # 5e-2 / 0.03
+#     "batch-size": [512],  # 512 / 64
+#     "exp-name": ["pfedgp_retuttal1"],
+#     "get-data-type": [2],
+# }
+# cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
+# run(cmds, n=1, ilow=0, type=1, sleep=5)
+
+
+# ! @2023-08-15 bmfl_tunning
+
 params = {
     ### optinal
     "optimizer": ["sgd"],
     "wd": [0.0],
     ### optinal
     "data-path": "experiments/datafolder",
-    "save-path": "output/bmfl10",
+    "save-path": "output/bmfl_tunning",
     "env": "bmfl",
     "seed": "777",
     "num-steps": 1000,
@@ -358,11 +487,11 @@ params = {
     "num-client-agg": 10,
     "data-name": ["cifar10"],
     "alpha": [0.1],
-    "inner-steps" :[1, 3, 5], # 1 / 5
-    "lr": [0.03, 0.025, 0.02], # 5e-2 / 0.03
-    "batch-size": [64], # 512 / 64
-    "exp-name": ["bmfl10"],
-    "get-data-type": [1],
+    "inner-steps": [1, 5],  # 1 / 5
+    "lr": [0.03, 0.05, 0.1, 0.5],  # 5e-2 / 0.03
+    "batch-size": [64],  # 512 / 64
+    "exp-name": ["bmfl_tunning"],
+    "get-data-type": [2],
 }
 cmds = make_cmds("experiments/ood_generalization/trainer.py", params)
-run(cmds, n=1, ilow=1, type=0, sleep=5)
+run(cmds, n=1, ilow=0, type=0, sleep=5)

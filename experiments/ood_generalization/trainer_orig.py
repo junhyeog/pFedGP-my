@@ -138,9 +138,10 @@ def eval_model(global_model, client_ids, GPs, clients, split):
         # erase tree (no need to save it)
         GPs[client_id].tree = None
 
-        results[client_id]['loss'] = running_loss / (batch_count + 1)
-        results[client_id]['correct'] = running_correct
-        results[client_id]['total'] = running_samples
+        if running_samples > 0:
+            results[client_id]['loss'] = running_loss / (batch_count + 1)
+            results[client_id]['correct'] = running_correct
+            results[client_id]['total'] = running_samples
 
     return results
 
@@ -340,7 +341,13 @@ for step in step_iter:
         ratio=1
         val_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="val")
         val_avg_loss, val_avg_acc = calc_metrics(val_results)
-        val_avg_loss_weighted, val_avg_acc_weighted = calc_weighted_metrics(val_results, client_datas_size_val)
+        try:
+            val_avg_loss_weighted, val_avg_acc_weighted = calc_weighted_metrics(val_results, client_datas_size_val)
+        except:
+            ###
+            import ipdb
+            ipdb.set_trace(context=5)
+            ###
         logging.info(f"[+] (val, ratio={ratio}) Step: {step + 1}, AVG Loss: {val_avg_loss:.4f},  AVG Acc Val: {val_avg_acc:.4f}")
         logging.info(f"[+] (val, ratio={ratio}) Step: {step + 1}, Weighted Loss: {val_avg_loss_weighted:.4f},  Weighted Acc Val: {val_avg_acc_weighted:.4f}")
 

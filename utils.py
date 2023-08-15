@@ -1,14 +1,16 @@
-import torch
-import numpy as np
-import random
-import logging
 import argparse
-from contextlib import contextmanager
-import os
 import json
-from pathlib import Path
+import logging
+import os
+import random
 import sys
 import warnings
+from contextlib import contextmanager
+from pathlib import Path
+
+import numpy as np
+import torch
+
 
 def set_seed(seed, cudnn_enabled=True):
     """for reproducibility
@@ -285,6 +287,9 @@ def offset_client_classes(loader, device):
 
 
 def calc_metrics(results):
+    if len(results) == 0:
+        return 0., 0.
+    
     total_correct = sum([val['correct'] for val in results.values()])
     total_samples = sum([val['total'] for val in results.values()])
     avg_loss = np.mean([val['loss'] for val in results.values()])
@@ -292,7 +297,8 @@ def calc_metrics(results):
     return avg_loss, avg_acc
 
 def calc_weighted_metrics(results, client_data_size):
-    # Assert that the results and client_data_size have the same keys
+    if len(results) == 0:
+        return 0., 0.
     
     user_idxs = list(results.keys())
     weights_size = []

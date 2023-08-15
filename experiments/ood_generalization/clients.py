@@ -51,4 +51,3 @@ class GenBaseClients:
 
     def __len__(self):
         return self.n_clients
-
