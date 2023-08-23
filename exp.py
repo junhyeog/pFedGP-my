@@ -52,8 +52,9 @@ params = {
     "num-client-agg": 10,
     "data-name": ["cifar10"],
     "alpha": [0.1],
-    "exp-name": ["bmfl_tunning"],
+    "exp-name": ["copy_tune_1"],
 }
 
 cmds = make_cmds("main.py", params)
-run(cmds, n=1, ilow=0, type=0, sleep=5)  # type = normal: 0, large: 1, a6000: 2
+for i in range(1):
+    run(cmds, n=1, ilow=0, type=0, sleep=5)  # type = normal: 0, large: 1, a6000: 2

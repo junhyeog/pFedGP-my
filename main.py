@@ -6,22 +6,15 @@ from collections import OrderedDict, defaultdict
 from pathlib import Path
 from time import sleep
 
-import optuna
 import numpy as np
+import optuna
 import torch
 import torch.utils.data
 from tensorboardX import SummaryWriter
 from tqdm import tqdm, trange
 
-
-# import sys
-
-# sys.path.append("../ood_generalization")
-# sys.path.append("../../experiments")
-# sys.path.append("../../../pFedGP_my")
 from experiments.backbone import CNNCifar, CNNTarget
 from experiments.ood_generalization.clients import GenBaseClients
-
 
 # from ..backbone import CNNCifar, CNNTarget
 # from .clients import GenBaseClients
@@ -72,9 +65,7 @@ parser.add_argument("--num-gibbs-steps-test", type=int, default=5, help="number 
 parser.add_argument("--num-gibbs-draws-test", type=int, default=30, help="number of parallel gibbs chains")
 parser.add_argument("--outputscale", type=float, default=8.0, help="output scale")
 parser.add_argument("--lengthscale", type=float, default=1.0, help="length scale")
-parser.add_argument(
-    "--outputscale-increase", type=str, default="constant", choices=["constant", "increase", "decrease"], help="output scale increase/decrease/constant along tree"
-)
+parser.add_argument("--outputscale-increase", type=str, default="constant", choices=["constant", "increase", "decrease"], help="output scale increase/decrease/constant along tree")
 
 #############################
 #       General args        #
@@ -101,13 +92,17 @@ def main(args, trial):
         # "num_gibbs_draws_train": trial.suggest_int("num_gibbs_draws_train", 10, 50, step=10),
         # "num_gibbs_draws_test": trial.suggest_int("num_gibbs_draws_test", 10, 50, step=10),
     }
-
+    # round float params
     for k, v in params.items():
         if isinstance(v, float):
             params[k] = round(v, 10)
+    # update args
     vars(args).update(params)
+    # check args
+    print(f"[+] Args:")
+    for k, v in vars(args).items():
+        print(f" - {k:20}: {v}")
     # args.trial = trial
-
     # avoid duplicate sets
     for previous_trial in trial.study.trials:
         if previous_trial.state == optuna.trial.TrialState.COMPLETE and trial.params == previous_trial.params:
