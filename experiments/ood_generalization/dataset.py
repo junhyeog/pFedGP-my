@@ -8,7 +8,9 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 from torchvision import transforms
 from torchvision.datasets import CIFAR10, CIFAR100
-from train_utils import get_data
+
+# from train_utils import get_data
+from experiments.ood_generalization.train_utils import get_data
 
 
 def classes_per_node_dirichlet(labels_list, num_users, alpha):
@@ -306,7 +308,10 @@ def create_generalization_loaders(data_name, data_root, num_train_users, num_gen
             idx_user_split[split_id].extend([np.array(s)[i] for i in labels_list_index])
 
         train_idx, val_idx, test_idx = idx_user_split
-        idx_user_split = [[train_idx[:num_train_users], val_idx[:num_train_users], test_idx[:num_train_users]], [train_idx[num_train_users:], val_idx[num_train_users:], test_idx[num_train_users:]]]
+        idx_user_split = [
+            [train_idx[:num_train_users], val_idx[:num_train_users], test_idx[:num_train_users]],
+            [train_idx[num_train_users:], val_idx[num_train_users:], test_idx[num_train_users:]],
+        ]
 
         # unite groups and create dataloaders
         generalization_loaders = []

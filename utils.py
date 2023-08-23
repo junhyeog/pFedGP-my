@@ -33,12 +33,10 @@ def set_seed(seed, cudnn_enabled=True):
 
 
 def set_logger():
-    logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.INFO
-    )
+    logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.WARNING)
 
-def get_device(cuda=True, gpus='0'):
+
+def get_device(cuda=True, gpus="0"):
     return torch.device("cuda:" + gpus if torch.cuda.is_available() and cuda else "cpu")
 
 
@@ -53,12 +51,12 @@ def count_parameters(model):
 def str2bool(v):
     if isinstance(v, bool):
         return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+    if v.lower() in ("yes", "true", "t", "y", "1"):
         return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+    elif v.lower() in ("no", "false", "f", "n", "0"):
         return False
     else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
+        raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
 def take(X, Y, classes):
@@ -72,7 +70,7 @@ def pytorch_take(X, Y, classes):
 
 
 def lbls1_to_lbls2(Y, l2l):
-    for (lbls1_class, lbls2_class) in l2l.items():
+    for lbls1_class, lbls2_class in l2l.items():
         if isinstance(lbls2_class, list):
             for c in lbls2_class:
                 Y[Y == lbls1_class] = c + 1000
@@ -82,6 +80,7 @@ def lbls1_to_lbls2(Y, l2l):
             raise NotImplementedError("not a valid type")
 
     return Y - 1000
+
 
 @contextmanager
 def suppress_stdout():
@@ -100,11 +99,11 @@ def suppress_stdout():
 # create folders for saving models and logs
 def _init_(out_path, exp_name):
     script_path = os.path.dirname(__file__)
-    script_path = '.' if script_path == '' else script_path
-    if not os.path.exists(out_path + '/' + exp_name):
-        os.makedirs(out_path + '/' + exp_name)
+    script_path = "." if script_path == "" else script_path
+    if not os.path.exists(out_path + "/" + exp_name):
+        os.makedirs(out_path + "/" + exp_name)
     # save configurations
-    os.system('cp -r ' + script_path + '/*.py ' + out_path + '/' + exp_name)
+    os.system("cp -r " + script_path + "/*.py " + out_path + "/" + exp_name)
 
 
 def get_art_dir(args):
@@ -112,10 +111,7 @@ def get_art_dir(args):
     art_dir.mkdir(exist_ok=True, parents=True)
 
     curr = 0
-    existing = [
-        int(x.as_posix().split('_')[-1])
-        for x in art_dir.iterdir() if x.is_dir()
-    ]
+    existing = [int(x.as_posix().split("_")[-1]) for x in art_dir.iterdir() if x.is_dir()]
     if len(existing) > 0:
         curr = max(existing) + 1
 
@@ -128,10 +124,7 @@ def get_art_dir(args):
 def save_experiment(args, results, return_out_dir=False, save_results=True):
     out_dir = get_art_dir(args)
 
-    json.dump(
-        vars(args),
-        open(out_dir / "meta.experiment", "w")
-    )
+    json.dump(vars(args), open(out_dir / "meta.experiment", "w"))
 
     # loss curve
     if save_results:
@@ -145,7 +138,7 @@ def topk(true, pred, k):
     max_pred = np.argsort(pred, axis=1)[:, -k:]  # take top k
     two_d_true = np.expand_dims(true, 1)  # 1d -> 2d
     two_d_true = np.repeat(two_d_true, k, axis=1)  # repeat along second axis
-    return (two_d_true == max_pred).sum()/true.shape[0]
+    return (two_d_true == max_pred).sum() / true.shape[0]
 
 
 def to_one_hot(y, dtype=torch.double):
@@ -154,18 +147,19 @@ def to_one_hot(y, dtype=torch.double):
     return y_output_onehot.scatter_(1, y.unsqueeze(1), 1)
 
 
-def CE_loss(y, y_hat, num_classes, reduction='mean'):
+def CE_loss(y, y_hat, num_classes, reduction="mean"):
     # convert a single label into a one-hot vector
     y_output_onehot = torch.zeros((y.shape[0], num_classes), dtype=y_hat.dtype, device=y.device)
     y_output_onehot.scatter_(1, y.unsqueeze(1), 1)
-    if reduction == 'mean':
-        return - torch.sum(y_output_onehot * torch.log(y_hat + 1e-12), dim=1).mean()
-    return - torch.sum(y_output_onehot * torch.log(y_hat + 1e-12))
+    if reduction == "mean":
+        return -torch.sum(y_output_onehot * torch.log(y_hat + 1e-12), dim=1).mean()
+    return -torch.sum(y_output_onehot * torch.log(y_hat + 1e-12))
 
 
 def permute_data_lbls(data, labels):
     perm = np.random.permutation(data.shape[0])
     return data[perm], labels[perm]
+
 
 def N_vec(y):
     """
@@ -192,11 +186,12 @@ def kappa_vec(y):
     :return:
     """
     if y.dim() == 1:
-        return y[:-1] - N_vec(y)/2.0
+        return y[:-1] - N_vec(y) / 2.0
     elif y.dim() == 2:
-        return y[:, :-1] - N_vec(y)/2.0
+        return y[:, :-1] - N_vec(y) / 2.0
     else:
         raise ValueError("x must be 1 or 2D")
+
 
 # modified from:
 # https://github.com/cornellius-gp/gpytorch/blob/master/gpytorch/utils/cholesky.py
@@ -219,16 +214,14 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
     except RuntimeError as e:
         isnan = torch.isnan(A)
         if isnan.any():
-            raise ValueError(
-                f"cholesky_cpu: {isnan.sum().item()} of {A.numel()} elements of the {A.shape} tensor are NaN."
-            )
+            raise ValueError(f"cholesky_cpu: {isnan.sum().item()} of {A.numel()} elements of the {A.shape} tensor are NaN.")
 
         if jitter is None:
             jitter = 1e-6 if A.dtype == torch.float32 else 1e-8
         Aprime = A.clone()
         jitter_prev = 0
         for i in range(5):
-            jitter_new = jitter * (10 ** i)
+            jitter_new = jitter * (10**i)
             Aprime.diagonal(dim1=-2, dim2=-1).add_(jitter_new - jitter_prev)
             jitter_prev = jitter_new
             try:
@@ -248,12 +241,8 @@ def print_calibration(ECE_module, out_dir, lbls_vs_target, file_name, color, tem
     probs = lbls_preds[:, 1:]
     targets = lbls_preds[:, 0]
 
-    ece_metrics = ECE_module.forward(probs, targets, (out_dir / file_name).as_posix(),
-                                     color=color, temp=temp)
-    logging.info(f"{file_name}, "
-                 f"ECE: {ece_metrics[0].item():.3f}, "
-                 f"MCE: {ece_metrics[1].item():.3f}, "
-                 f"BRI: {ece_metrics[2].item():.3f}")
+    ece_metrics = ECE_module.forward(probs, targets, (out_dir / file_name).as_posix(), color=color, temp=temp)
+    logging.info(f"{file_name}, " f"ECE: {ece_metrics[0].item():.3f}, " f"MCE: {ece_metrics[1].item():.3f}, " f"BRI: {ece_metrics[2].item():.3f}")
 
 
 def calibration_search(ECE_module, out_dir, lbls_vs_target, color, file_name):
@@ -265,13 +254,10 @@ def calibration_search(ECE_module, out_dir, lbls_vs_target, color, file_name):
     eces = [ECE_module.forward(probs, targets, None, color=color, temp=t)[0].item() for t in temps]
     best_temp = round(temps[np.argmin(eces)].item(), 2)
 
-    ece_metrics = ECE_module.forward(probs, targets, (out_dir / file_name).as_posix(),
-                                     color=color, temp=best_temp)
-    logging.info(f"{file_name}, "
-                 f"Best Temperature: {best_temp:.3f}, "
-                 f"ECE: {ece_metrics[0].item():.3f}, "
-                 f"MCE: {ece_metrics[1].item():.3f}, "
-                 f"BRI: {ece_metrics[2].item():.3f}")
+    ece_metrics = ECE_module.forward(probs, targets, (out_dir / file_name).as_posix(), color=color, temp=best_temp)
+    logging.info(
+        f"{file_name}, " f"Best Temperature: {best_temp:.3f}, " f"ECE: {ece_metrics[0].item():.3f}, " f"MCE: {ece_metrics[1].item():.3f}, " f"BRI: {ece_metrics[2].item():.3f}"
+    )
 
     return best_temp
 
@@ -288,25 +274,26 @@ def offset_client_classes(loader, device):
 
 def calc_metrics(results):
     if len(results) == 0:
-        return 0., 0.
-    
-    total_correct = sum([val['correct'] for val in results.values()])
-    total_samples = sum([val['total'] for val in results.values()])
-    avg_loss = np.mean([val['loss'] for val in results.values()])
+        return 0.0, 0.0
+
+    total_correct = sum([val["correct"] for val in results.values()])
+    total_samples = sum([val["total"] for val in results.values()])
+    avg_loss = np.mean([val["loss"] for val in results.values()])
     avg_acc = total_correct / total_samples
     return avg_loss, avg_acc
 
+
 def calc_weighted_metrics(results, client_data_size):
     if len(results) == 0:
-        return 0., 0.
-    
+        return 0.0, 0.0
+
     user_idxs = list(results.keys())
     weights_size = []
     for user_idx in user_idxs:
         weights_size.append(client_data_size[user_idx])
     weights = np.array(weights_size) / sum(weights_size)
-        
-    avg_loss = np.average([results[user_idx]['loss'] for user_idx in user_idxs], weights=weights)
-    avg_acc = np.average([results[user_idx]['correct'] / results[user_idx]['total'] for user_idx in user_idxs], weights=weights)
-    
+
+    avg_loss = np.average([results[user_idx]["loss"] for user_idx in user_idxs], weights=weights)
+    avg_acc = np.average([results[user_idx]["correct"] / results[user_idx]["total"] for user_idx in user_idxs], weights=weights)
+
     return avg_loss, avg_acc
