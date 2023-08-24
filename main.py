@@ -6,6 +6,7 @@ from collections import OrderedDict, defaultdict
 from pathlib import Path
 from time import sleep
 
+import uuid
 import numpy as np
 import optuna
 import torch
@@ -65,14 +66,16 @@ parser.add_argument("--num-gibbs-steps-test", type=int, default=5, help="number 
 parser.add_argument("--num-gibbs-draws-test", type=int, default=30, help="number of parallel gibbs chains")
 parser.add_argument("--outputscale", type=float, default=8.0, help="output scale")
 parser.add_argument("--lengthscale", type=float, default=1.0, help="length scale")
-parser.add_argument("--outputscale-increase", type=str, default="constant", choices=["constant", "increase", "decrease"], help="output scale increase/decrease/constant along tree")
+parser.add_argument(
+    "--outputscale-increase", type=str, default="constant", choices=["constant", "increase", "decrease"], help="output scale increase/decrease/constant along tree"
+)
 
 #############################
 #       General args        #
 #############################
 parser.add_argument("--gpus", type=str, default="0", help="gpu device ID")
 parser.add_argument("--exp-name", type=str, default="", help="suffix for exp name")
-parser.add_argument("--eval-every", type=int, default=2, help="eval every X selected steps")
+parser.add_argument("--eval-every", type=int, default=100, help="eval every X selected steps")
 parser.add_argument("--save-path", type=str, default="./output/pFedGP", help="dir path for output file")  # change
 parser.add_argument("--seed", type=int, default=42, help="seed value")
 
@@ -89,8 +92,8 @@ def main(args, trial):
         "lr": trial.suggest_float("lr", 0.01, 10, log=True),
         "wd": trial.suggest_float("wd", 5e-4, 1e-3, step=1e-4),
         "inner_steps": trial.suggest_int("inner_steps", 1, 5, step=2),
-        # "num_gibbs_draws_train": trial.suggest_int("num_gibbs_draws_train", 10, 50, step=10),
-        # "num_gibbs_draws_test": trial.suggest_int("num_gibbs_draws_test", 10, 50, step=10),
+        "num_gibbs_draws_train": trial.suggest_int("num_gibbs_draws_train", 50, 50, step=10),
+        "num_gibbs_draws_test": trial.suggest_int("num_gibbs_draws_test", 50, 50, step=10),
     }
     # round float params
     for k, v in params.items():
@@ -123,6 +126,7 @@ def main(args, trial):
     # if args.exp_name != '':
     #     exp_name += '_' + args.exp_name
 
+    args.uuid = str(uuid.uuid1())[:8]
     exp_name = f"env:{args.env}_seed:{args.seed}_"
     exp_name += f"d:{args.data_name}_alpha:{args.alpha}_"
     exp_name += f"clients:{args.num_clients},{args.num_client_agg},{args.num_novel_clients}_"
@@ -133,6 +137,7 @@ def main(args, trial):
     exp_name += f"obj:{args.objective}_"
     exp_name += f"ngd_train:{args.num_gibbs_draws_train}_"
     exp_name += f"ngd_test:{args.num_gibbs_draws_test}_"
+    exp_name += f"{args.uuid}_{trial.number}"
 
     logging.info(str(args))
     args.out_dir = (Path(args.save_path) / exp_name).as_posix()

@@ -13,44 +13,52 @@ from torch.utils.data import ConcatDataset
 from torchvision import datasets, transforms
 
 # from utils.femnist import FEMNIST
-#from models.Nets import CNNCifar, MobileNetCifar
-#from models.ResNet import ResNet18, ResNet50
+# from models.Nets import CNNCifar, MobileNetCifar
+# from models.ResNet import ResNet18, ResNet50
 
-trans_mnist = transforms.Compose([
-    transforms.ToTensor(), # TODO: channel is 1
-    transforms.Normalize((0.1307,), (0.3081,)),
-])
-trans_emnist = transforms.Compose([
-    transforms.Grayscale(num_output_channels=3),
-    transforms.Resize((32, 32)),
-    transforms.ToTensor(),
-    transforms.Normalize((0.1307,), (0.3081,)),
-])
-trans_celeba = transforms.Compose([
-    transforms.Resize((32, 32)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-])
-trans_cifar10_train = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
-trans_cifar10_val = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
-trans_cifar100_train = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276]),
-])
-trans_cifar100_val = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276]),
-])
+trans_mnist = transforms.Compose(
+    [
+        transforms.ToTensor(),  # TODO: channel is 1
+        transforms.Normalize((0.1307,), (0.3081,)),
+    ]
+)
+trans_emnist = transforms.Compose(
+    [
+        transforms.Grayscale(num_output_channels=3),
+        transforms.Resize((32, 32)),
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,)),
+    ]
+)
+trans_celeba = transforms.Compose([transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
+trans_cifar10_train = transforms.Compose(
+    [
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ]
+)
+trans_cifar10_val = transforms.Compose(
+    [
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ]
+)
+trans_cifar100_train = transforms.Compose(
+    [
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276]),
+    ]
+)
+trans_cifar100_val = transforms.Compose(
+    [
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276]),
+    ]
+)
 
 
 def add_rand_transform(args, transform):
@@ -58,19 +66,21 @@ def add_rand_transform(args, transform):
     transform = deepcopy(transform)
     # find index of ToTensor
     to_tensor_idx = [i for i, t in enumerate(transform.transforms) if isinstance(t, transforms.ToTensor)][0]
-    interpolationMode = transforms.InterpolationMode.BICUBIC # NEAREST, BILINEAR, BICUBIC
-    randaug = transforms.RandAugment(args.ra_n, args.ra_m, interpolation = interpolationMode)
+    interpolationMode = transforms.InterpolationMode.BICUBIC  # NEAREST, BILINEAR, BICUBIC
+    randaug = transforms.RandAugment(args.ra_n, args.ra_m, interpolation=interpolationMode)
     transform.transforms.insert(to_tensor_idx, randaug)
     return transform
+
 
 def update_transform(args, transform):
     if args.ra:
         transform = add_rand_transform(args, transform)
-        print("-"*50)
+        print("-" * 50)
         print("Add RandAugment to transform")
         print(transform)
-        print("-"*50)
+        print("-" * 50)
     return transform
+
 
 # >>> data split from pFL-Bench
 # https://github.com/alibaba/FederatedScope
@@ -151,11 +161,12 @@ def dirichlet_distribution_noniid_slice(label, client_num, alpha, min_size=1, pr
         np.random.shuffle(idx_slice[i])
 
     dict_users = {client_idx: np.array(idx_slice[client_idx]) for client_idx in range(client_num)}
-    return dict_users # idx_slice
+    return dict_users  # idx_slice
+
 
 # <<< data split from pFL-Bench
 def get_data(dataset, num_users, ood_users, alpha, args=None):
-    get_data_type = getattr(args, 'get_data_type', 1)
+    get_data_type = getattr(args, "get_data_type", 2)
     # type 0:
     # remove_test_only = False
     # remove_train_only = True
@@ -167,11 +178,11 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
     # remove_test_only: O, remove_train_only: X -> O, X, X, X
     # remove_test_only: X, remove_train_only: O -> X, X, X, X
     # remove_test_only: X, remove_train_only: X -> ?, ?, ?, ?
-    
-    # move_data, k=1: -> X, X, X, X 
-    # move_data, k=2: -> X, X, X, X 
+
+    # move_data, k=1: -> X, X, X, X
+    # move_data, k=2: -> X, X, X, X
     # move_data, k=3: -> ?, ?, ?, ?
-    # move_data, k=4: -> X, X, X, X 
+    # move_data, k=4: -> X, X, X, X
 
     # type 1: move
     if get_data_type == 1:
@@ -181,35 +192,34 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
         copy_data = False
         k = 1
 
-        ### after fix train_test_split method 
+        ### after fix train_test_split method
         # move_data, k=1: -> O, O, O, O
         # default setting: train 50148, test 9796
         # cifar100_5.0   : train 50002, test 9984
-        # cifar100_0.5   : train 50581, test 8419 
+        # cifar100_0.5   : train 50581, test 8419
         # cifar10_0.1    : train 50229, test 9703
-    
+
     # type 2: copy
     elif get_data_type == 2:
         remove_test_only = False
         remove_train_only = False
         move_data = False
         copy_data = True
-        
-        ### 
-        # cifar100_5.0   : 
-        # cifar100_0.5   : 
+
+        ###
+        # cifar100_5.0   :
+        # cifar100_0.5   :
         # cifar10_0.1    : train 50297, test 10000
-        
 
     total_users = num_users + ood_users
-    if dataset == 'cifar10':
-        dataset_train = datasets.CIFAR10('data/cifar10', train=True, download=True, transform=trans_cifar10_train)
-        dataset_test = datasets.CIFAR10('data/cifar10', train=False, download=True, transform=trans_cifar10_val)
-    elif dataset == 'cifar100':
-        dataset_train = datasets.CIFAR100('data/cifar100', train=True, download=True, transform=trans_cifar100_train)
-        dataset_test = datasets.CIFAR100('data/cifar100', train=False, download=True, transform=trans_cifar100_val)
+    if dataset == "cifar10":
+        dataset_train = datasets.CIFAR10("data/cifar10", train=True, download=True, transform=trans_cifar10_train)
+        dataset_test = datasets.CIFAR10("data/cifar10", train=False, download=True, transform=trans_cifar10_val)
+    elif dataset == "cifar100":
+        dataset_train = datasets.CIFAR100("data/cifar100", train=True, download=True, transform=trans_cifar100_train)
+        dataset_test = datasets.CIFAR100("data/cifar100", train=False, download=True, transform=trans_cifar100_val)
     else:
-        exit('Error: unrecognized dataset')
+        exit("Error: unrecognized dataset")
 
     targets_train = np.array(dataset_train.targets)
     targets_test = np.array(dataset_test.targets)
@@ -218,7 +228,7 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
     dict_users_test = dirichlet_distribution_noniid_slice(targets_test, total_users, alpha)
 
     logging.info(f"[+] total original data size: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
-    
+
     if remove_test_only:
         # remove test only classes from test set
         for user in range(total_users):
@@ -231,7 +241,7 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
             for test_only_class in test_only:
                 idxs = np.array([targets_test[idx] == test_only_class for idx in dict_users_test[user]])
                 dict_users_test[user] = dict_users_test[user][~idxs]
-                
+
             # check if there is any class only in train or test set
             user_targets_train = np.array(dataset_train.targets)[dict_users_train[user]]
             user_targets_test = np.array(dataset_test.targets)[dict_users_test[user]]
@@ -243,8 +253,10 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
                     logging.info(f"[!] test class {c} is not in train set")
                     raise ValueError(f"[!] test class {c} is not in train set")
 
-        logging.info(f"[+] total data size after remove test only classes: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
-    
+        logging.info(
+            f"[+] total data size after remove test only classes: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}"
+        )
+
     if remove_train_only:
         # remove train only classes from train set
         for user in range(total_users):
@@ -268,7 +280,9 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
                 if c not in test_classes:
                     logging.info(f"[!] train class {c} is not in test set")
                     raise ValueError(f"[!] train class {c} is not in test set")
-        logging.info(f"[+] total data size after remove train only classes: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
+        logging.info(
+            f"[+] total data size after remove train only classes: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}"
+        )
 
     if move_data:
         # 1. merge train and test set into one dataset (merged_dataset)
@@ -301,19 +315,18 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
             test_only = np.setdiff1d(test_classes, train_classes, assume_unique=True)
             for test_only_class in test_only:
                 idxs = np.array([merged_targets[idx] == test_only_class for idx in dict_users_test[user_idx]])
-                test_only_class_idxs = dict_users_test[user_idx][idxs] # dataset idx
+                test_only_class_idxs = dict_users_test[user_idx][idxs]  # dataset idx
                 if len(test_only_class_idxs) <= k:
                     dict_users_test[user_idx] = dict_users_test[user_idx][~idxs]
                 else:
-                    random_idxs = np.random.choice(test_only_class_idxs, k, replace=False) # dataset idx
+                    random_idxs = np.random.choice(test_only_class_idxs, k, replace=False)  # dataset idx
                     mask = np.isin(dict_users_test[user_idx], random_idxs)
                     dict_users_test[user_idx] = dict_users_test[user_idx][~mask]
                     dict_users_train[user_idx] = np.append(dict_users_train[user_idx], random_idxs)
-        
 
         dataset_train = merged_dataset
         dataset_test = merged_dataset
-        
+
         # check if there is any class only in train or test set
         for user in range(total_users):
             user_targets_train = np.array(dataset_train.targets)[dict_users_train[user]]
@@ -325,8 +338,10 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
                 if c not in train_classes:
                     logging.info(f"[!] test class {c} is not in train set")
                     raise ValueError(f"[!] test class {c} is not in train set")
-                
-        logging.info(f"[+] total data size after move data: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
+
+        logging.info(
+            f"[+] total data size after move data: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}"
+        )
 
     if copy_data:
         merged_dataset = torch.utils.data.ConcatDataset([dataset_train, dataset_test])
@@ -352,13 +367,13 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
             test_only = np.setdiff1d(test_classes, train_classes, assume_unique=True)
             for test_only_class in test_only:
                 idxs = np.array([merged_targets[idx] == test_only_class for idx in dict_users_test[user_idx]])
-                test_only_class_idxs = dict_users_test[user_idx][idxs] # dataset idx
-                random_idxs = np.random.choice(test_only_class_idxs, 1, replace=False) # dataset idx
+                test_only_class_idxs = dict_users_test[user_idx][idxs]  # dataset idx
+                random_idxs = np.random.choice(test_only_class_idxs, 1, replace=False)  # dataset idx
                 dict_users_train[user_idx] = np.append(dict_users_train[user_idx], random_idxs)
-        
+
         dataset_train = merged_dataset
         dataset_test = merged_dataset
-        
+
         # check if there is any class only in train or test set
         for user in range(total_users):
             user_targets_train = np.array(dataset_train.targets)[dict_users_train[user]]
@@ -370,11 +385,12 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
                 if c not in train_classes:
                     logging.info(f"t[!] est class {c} is not in train set")
                     raise ValueError(f"[!] test class {c} is not in train set")
-                
-        logging.info(f"[+] total data size after copy data: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
 
-    return dataset_train, dataset_test, dict_users_train, dict_users_test        
+        logging.info(
+            f"[+] total data size after copy data: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}"
+        )
 
+    return dataset_train, dataset_test, dict_users_train, dict_users_test
 
 
 # def get_model(args):
@@ -429,7 +445,6 @@ def set_seed(seed):
     torch.backends.cudnn.deterministic = True
 
 
-
 ## MAML++ utils
 def get_loss_weights(inner_loop, annealing_epochs, current_epoch):
     """Code from MAML++ paper AntreasAntoniou`s Pytorch Implementation(slightly modified for integration)
@@ -445,15 +460,14 @@ def get_loss_weights(inner_loop, annealing_epochs, current_epoch):
         curr_value = np.maximum(loss_weights[i] - (current_epoch * decay_rate), min_value_for_non_final_losses)
         loss_weights[i] = curr_value
 
-    curr_value = np.minimum(
-        loss_weights[-1] + (current_epoch * (inner_loop -1) * decay_rate),
-        1.0 - ((inner_loop - 1) * min_value_for_non_final_losses))
+    curr_value = np.minimum(loss_weights[-1] + (current_epoch * (inner_loop - 1) * decay_rate), 1.0 - ((inner_loop - 1) * min_value_for_non_final_losses))
     loss_weights[-1] = curr_value
     loss_weights = torch.Tensor(loss_weights)
     return loss_weights
 
+
 ## Per-FedAvg utils
-def approximate_hessian(w_local, functional, data_batch: Tuple[torch.Tensor, torch.Tensor], grad, delta = 1e-4):
+def approximate_hessian(w_local, functional, data_batch: Tuple[torch.Tensor, torch.Tensor], grad, delta=1e-4):
     """Code from Per-FedAvg KarhouTam's Pytorch Implementation(slightly modified for integration)
     return Hessian approximation which preserves all theoretical guarantees of MAML, without requiring access to second-order information(HF-MAML)
     """
@@ -464,8 +478,8 @@ def approximate_hessian(w_local, functional, data_batch: Tuple[torch.Tensor, tor
     wt_1 = [torch.Tensor(w) for w in w_local]
     wt_2 = [torch.Tensor(w) for w in w_local]
 
-    wt_1 = [w + delta*g for w,g in zip(wt_1, grad)]
-    wt_2 = [w - delta*g for w,g in zip(wt_1, grad)]
+    wt_1 = [w + delta * g for w, g in zip(wt_1, grad)]
+    wt_2 = [w - delta * g for w, g in zip(wt_1, grad)]
 
     logit_1 = functional(wt_1, x)
     loss_1 = criterion(logit_1, y)
@@ -478,12 +492,13 @@ def approximate_hessian(w_local, functional, data_batch: Tuple[torch.Tensor, tor
     with torch.no_grad():
         grads_2nd = deepcopy(grads_1)
         for g_2nd, g1, g2 in zip(grads_2nd, grads_1, grads_2):
-            g_2nd.data = (g1-g2) / (2*delta)
+            g_2nd.data = (g1 - g2) / (2 * delta)
 
     return grads_2nd
 
+
 def clip_norm_(grads, max_norm, norm_type: float = 2.0):
-    """ This code is based on torch.nn.utils.clip_grad_norm_(inplace function that does gradient clipping to max_norm).
+    """This code is based on torch.nn.utils.clip_grad_norm_(inplace function that does gradient clipping to max_norm).
     the input of torch.nn.utils.clip_grad_norm_ is parameters
     but the input of clip_norm_ is list of gradients
     """
@@ -492,13 +507,14 @@ def clip_norm_(grads, max_norm, norm_type: float = 2.0):
 
     device = grads[0].device
     total_norm = torch.norm(torch.stack([torch.norm(g.detach(), norm_type).to(device) for g in grads]), norm_type)
-    clip_coef = max_norm / (total_norm  + 1e-6)
+    clip_coef = max_norm / (total_norm + 1e-6)
 
     clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
     for g in grads:
         g.detach().mul_(clip_coef_clamped.to(g.device))
 
     return total_norm
+
 
 # def clip_norm_coef(grads, max_norm, norm_type: float = 2.0):
 #     max_norm = float(max_norm)
@@ -512,8 +528,9 @@ def clip_norm_(grads, max_norm, norm_type: float = 2.0):
 
 #     return clip_coef_clamped.to(device)
 
+
 def clip_norm_coef(grads, max_norm, norm_type: float = 2.0):
-    """ This code looks similar to torch.nn.utils.clip_grad_norm_ and clip_norm_,
+    """This code looks similar to torch.nn.utils.clip_grad_norm_ and clip_norm_,
     but it is very different because it does not detach grads(important to MAML algorithm).
     return A scalar coefficient that normalizes the norm of gradients to the max_norm
     """
@@ -522,117 +539,118 @@ def clip_norm_coef(grads, max_norm, norm_type: float = 2.0):
 
     device = grads[0].device
     total_norm = torch.norm(torch.stack([torch.norm(g, norm_type).to(device) for g in grads]), norm_type)
-    clip_coef = max_norm / (total_norm  + 1e-6)
+    clip_coef = max_norm / (total_norm + 1e-6)
 
     clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
 
     return clip_coef_clamped.to(device)
 
+
 def clip_norm_coef_wo_logit(grads, max_norm, norm_type: float = 2.0):
-    """ This code looks similar to torch.nn.utils.clip_grad_norm_ and clip_norm_,
+    """This code looks similar to torch.nn.utils.clip_grad_norm_ and clip_norm_,
     but it is very different because it does not detach grads(important to MAML algorithm).
     return A scalar coefficient that normalizes the norm of gradients to the max_norm
     """
-    logit_layer_num = 10 # to exclude NVDP logit layer
+    logit_layer_num = 10  # to exclude NVDP logit layer
     max_norm = float(max_norm)
     norm_type = float(norm_type)
 
     device = grads[0].device
-    total_norm = torch.norm(torch.stack([torch.norm(g, norm_type).to(device) for i, g in enumerate(grads) if i!=logit_layer_num]), norm_type)
-    clip_coef = max_norm / (total_norm  + 1e-6)
+    total_norm = torch.norm(torch.stack([torch.norm(g, norm_type).to(device) for i, g in enumerate(grads) if i != logit_layer_num]), norm_type)
+    clip_coef = max_norm / (total_norm + 1e-6)
 
     clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
 
     return clip_coef_clamped.to(device)
 
 
-
 def calc_bins(preds, labels_oneh):
-  # Assign each prediction to a bin
-  num_bins = 10
-  bins = np.linspace(0.1, 1, num_bins)
-  binned = np.digitize(preds, bins)
+    # Assign each prediction to a bin
+    num_bins = 10
+    bins = np.linspace(0.1, 1, num_bins)
+    binned = np.digitize(preds, bins)
 
-  # Save the accuracy, confidence and size of each bin
-  bin_accs = np.zeros(num_bins)
-  bin_confs = np.zeros(num_bins)
-  bin_sizes = np.zeros(num_bins)
+    # Save the accuracy, confidence and size of each bin
+    bin_accs = np.zeros(num_bins)
+    bin_confs = np.zeros(num_bins)
+    bin_sizes = np.zeros(num_bins)
 
-  for bin in range(num_bins):
-    bin_sizes[bin] = len(preds[binned == bin])
-    if bin_sizes[bin] > 0:
-      bin_accs[bin] = (labels_oneh[binned==bin]).sum() / bin_sizes[bin]
-      bin_confs[bin] = (preds[binned==bin]).sum() / bin_sizes[bin]
+    for bin in range(num_bins):
+        bin_sizes[bin] = len(preds[binned == bin])
+        if bin_sizes[bin] > 0:
+            bin_accs[bin] = (labels_oneh[binned == bin]).sum() / bin_sizes[bin]
+            bin_confs[bin] = (preds[binned == bin]).sum() / bin_sizes[bin]
 
-  return bins, binned, bin_accs, bin_confs, bin_sizes
+    return bins, binned, bin_accs, bin_confs, bin_sizes
+
 
 def get_metrics(preds, labels_oneh):
-  ECE = 0
-  MCE = 0
-  bins, _, bin_accs, bin_confs, bin_sizes = calc_bins(preds, labels_oneh)
+    ECE = 0
+    MCE = 0
+    bins, _, bin_accs, bin_confs, bin_sizes = calc_bins(preds, labels_oneh)
 
-  for i in range(len(bins)):
-    abs_conf_dif = abs(bin_accs[i] - bin_confs[i])
-    ECE += (bin_sizes[i] / sum(bin_sizes)) * abs_conf_dif
-    MCE = max(MCE, abs_conf_dif)
+    for i in range(len(bins)):
+        abs_conf_dif = abs(bin_accs[i] - bin_confs[i])
+        ECE += (bin_sizes[i] / sum(bin_sizes)) * abs_conf_dif
+        MCE = max(MCE, abs_conf_dif)
 
-  return ECE, MCE
+    return ECE, MCE
 
 
 def draw_reliability_graph(preds, labels_oneh):
-#   import ipdb; ipdb.set_trace(context=5)
-  ECE, MCE = get_metrics(preds, labels_oneh)
-  bins, _, bin_accs, _, _ = calc_bins(preds, labels_oneh)
+    #   import ipdb; ipdb.set_trace(context=5)
+    ECE, MCE = get_metrics(preds, labels_oneh)
+    bins, _, bin_accs, _, _ = calc_bins(preds, labels_oneh)
 
-  fig = plt.figure(figsize=(8, 8))
-  ax = fig.gca()
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.gca()
 
-  # x/y limits
-  ax.set_xlim(0, 1.05)
-  ax.set_ylim(0, 1)
+    # x/y limits
+    ax.set_xlim(0, 1.05)
+    ax.set_ylim(0, 1)
 
-  # x/y labels
-  plt.xlabel('Confidence')
-  plt.ylabel('Accuracy')
+    # x/y labels
+    plt.xlabel("Confidence")
+    plt.ylabel("Accuracy")
 
-  # Create grid
-  ax.set_axisbelow(True)
-  ax.grid(color='gray', linestyle='dashed')
+    # Create grid
+    ax.set_axisbelow(True)
+    ax.grid(color="gray", linestyle="dashed")
 
-  # Error bars
-  plt.bar(bins, bins,  width=0.1, alpha=0.3, edgecolor='black', color='r', hatch='\\')
+    # Error bars
+    plt.bar(bins, bins, width=0.1, alpha=0.3, edgecolor="black", color="r", hatch="\\")
 
-  # Draw bars and identity line
-  plt.bar(bins, bin_accs, width=0.1, alpha=1, edgecolor='black', color='b')
-  plt.plot([0,1],[0,1], '--', color='gray', linewidth=2)
+    # Draw bars and identity line
+    plt.bar(bins, bin_accs, width=0.1, alpha=1, edgecolor="black", color="b")
+    plt.plot([0, 1], [0, 1], "--", color="gray", linewidth=2)
 
-  # Equally spaced axes
-  plt.gca().set_aspect('equal', adjustable='box')
+    # Equally spaced axes
+    plt.gca().set_aspect("equal", adjustable="box")
 
-  # ECE and MCE legend
-  ECE_patch = mpatches.Patch(color='green', label='ECE = {:.2f}%'.format(ECE*100))
-  MCE_patch = mpatches.Patch(color='red', label='MCE = {:.2f}%'.format(MCE*100))
-  plt.legend(handles=[ECE_patch, MCE_patch])
+    # ECE and MCE legend
+    ECE_patch = mpatches.Patch(color="green", label="ECE = {:.2f}%".format(ECE * 100))
+    MCE_patch = mpatches.Patch(color="red", label="MCE = {:.2f}%".format(MCE * 100))
+    plt.legend(handles=[ECE_patch, MCE_patch])
 
-  #plt.show()
-  #plt.savefig('calibrated_network.png', bbox_inches='tight')
-  #plt.close(fig)
-  return fig, ECE, MCE
+    # plt.show()
+    # plt.savefig('calibrated_network.png', bbox_inches='tight')
+    # plt.close(fig)
+    return fig, ECE, MCE
 
 
 def plot_data_partition(dataset, dict_users, num_classes, num_sample_users, writer=None, tag="Data Partition"):
-    dict_users_targets={}
-    targets=np.array(dataset.targets)
+    dict_users_targets = {}
+    targets = np.array(dataset.targets)
 
     dict_users_targets = {client_idx: targets[data_idxs] for client_idx, data_idxs in dict_users.items()}
 
-    s=torch.stack([torch.bincount(torch.tensor(data_idxs), minlength=num_classes) for client_idx, data_idxs in dict_users_targets.items()])
-    ss=torch.cumsum(s, 1)
-    cmap = plt.cm.get_cmap('hsv', num_classes)
+    s = torch.stack([torch.bincount(torch.tensor(data_idxs), minlength=num_classes) for client_idx, data_idxs in dict_users_targets.items()])
+    ss = torch.cumsum(s, 1)
+    cmap = plt.cm.get_cmap("hsv", num_classes)
     fig, ax = plt.subplots(figsize=(20, num_sample_users))
     ax.barh([f"Client {i:3d}" for i in range(num_sample_users)], s[:num_sample_users, 0], color=cmap(0))
     for c in range(1, num_classes):
-        ax.barh([f"Client {i:3d}" for i in range(num_sample_users)], s[:num_sample_users, c], left=ss[:num_sample_users, c-1], color=cmap(c))
+        ax.barh([f"Client {i:3d}" for i in range(num_sample_users)], s[:num_sample_users, c], left=ss[:num_sample_users, c - 1], color=cmap(c))
     # plt.show()
     if writer is not None:
         writer.add_figure(tag, fig)
