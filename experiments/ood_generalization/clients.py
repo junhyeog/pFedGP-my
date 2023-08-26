@@ -1,13 +1,11 @@
 import logging
 
-from experiments.ood_generalization.dataset import \
-    create_generalization_loaders
+from experiments.ood_generalization.dataset import create_generalization_loaders
 from utils import set_seed
 
 
 class GenBaseClients:
     def __init__(self, data_name, data_path, n_clients, n_gen_clients, batch_size=128, alpha=1, args=None, **kwargs):
-
         self.data_name = data_name
         self.data_path = data_path
         self.n_clients = n_clients
@@ -21,7 +19,7 @@ class GenBaseClients:
         n_train_users = self.n_clients - self.n_gen_nodes
 
         set_seed(self.args.seed)
-        logging.info(f"[+] GenBaseClients(env={self.args.env}): set_seed({self.args.seed})")
+        logging.warning(f"[+] GenBaseClients(env={self.args.env}): set_seed({self.args.seed})")
         self.train_loaders, self.val_loaders, self.test_loaders = create_generalization_loaders(
             self.data_name,
             self.data_path,
@@ -45,9 +43,9 @@ class GenBaseClients:
         self.std_train_data = (self.std_train_data / len(self.train_loaders)) ** 0.5
         self.std_val_data = (self.std_val_data / len(self.val_loaders)) ** 0.5
         self.std_test_data = (self.std_test_data / len(self.test_loaders)) ** 0.5
-        logging.info(f"[+] GenBaseClients(alpha={self.alpha}): (train): total={self.total_train_data:}, mean={self.mean_train_data}, std={self.std_train_data}")
-        logging.info(f"[+] GenBaseClients(alpha={self.alpha}): (val)  : total={self.total_val_data}, mean={self.mean_val_data}, std={self.std_val_data}")
-        logging.info(f"[+] GenBaseClients(alpha={self.alpha}): (test) : total={self.total_test_data}, mean={self.mean_test_data}, std={self.std_test_data}")
+        logging.warning(f"[+] GenBaseClients(alpha={self.alpha}): (train): total={self.total_train_data:}, mean={self.mean_train_data}, std={self.std_train_data}")
+        logging.warning(f"[+] GenBaseClients(alpha={self.alpha}): (val)  : total={self.total_val_data}, mean={self.mean_val_data}, std={self.std_val_data}")
+        logging.warning(f"[+] GenBaseClients(alpha={self.alpha}): (test) : total={self.total_test_data}, mean={self.mean_test_data}, std={self.std_test_data}")
 
     def __len__(self):
         return self.n_clients

@@ -227,7 +227,9 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
     dict_users_train = dirichlet_distribution_noniid_slice(targets_train, total_users, alpha)
     dict_users_test = dirichlet_distribution_noniid_slice(targets_test, total_users, alpha)
 
-    logging.info(f"[+] total original data size: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}")
+    logging.warning(
+        f"[+] total original data size: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}"
+    )
 
     if remove_test_only:
         # remove test only classes from test set
@@ -250,10 +252,10 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
             # check if there is any class that is in test and not in train set
             for c in test_classes:
                 if c not in train_classes:
-                    logging.info(f"[!] test class {c} is not in train set")
+                    logging.warning(f"[!] test class {c} is not in train set")
                     raise ValueError(f"[!] test class {c} is not in train set")
 
-        logging.info(
+        logging.warning(
             f"[+] total data size after remove test only classes: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}"
         )
 
@@ -278,9 +280,9 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
             # check if there is any class that is in train and not in test set
             for c in train_classes:
                 if c not in test_classes:
-                    logging.info(f"[!] train class {c} is not in test set")
+                    logging.warning(f"[!] train class {c} is not in test set")
                     raise ValueError(f"[!] train class {c} is not in test set")
-        logging.info(
+        logging.warning(
             f"[+] total data size after remove train only classes: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}"
         )
 
@@ -336,10 +338,10 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
             # check if there is any class that is in test and not in train set
             for c in test_classes:
                 if c not in train_classes:
-                    logging.info(f"[!] test class {c} is not in train set")
+                    logging.warning(f"[!] test class {c} is not in train set")
                     raise ValueError(f"[!] test class {c} is not in train set")
 
-        logging.info(
+        logging.warning(
             f"[+] total data size after move data: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}"
         )
 
@@ -383,12 +385,19 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
             # check if there is any class that is in test and not in train set
             for c in test_classes:
                 if c not in train_classes:
-                    logging.info(f"t[!] est class {c} is not in train set")
+                    logging.warning(f"t[!] est class {c} is not in train set")
                     raise ValueError(f"[!] test class {c} is not in train set")
 
-        logging.info(
+        logging.warning(
             f"[+] total data size after copy data: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}"
         )
+
+    for i in dict_users_train.keys():
+        train_bin = torch.tensor(dataset_train.targets)[dict_users_train[i]].bincount()
+        test_bin = torch.tensor(dataset_test.targets)[dict_users_test[i]].bincount()
+        logging.warning(f"[+] train_bin (client: {i}): \n{train_bin}")
+        logging.warning(f"[+] test_bin  (client: {i}): \n{test_bin}")
+        logging.warning(f"================================================================")
 
     return dataset_train, dataset_test, dict_users_train, dict_users_test
 

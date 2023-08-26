@@ -72,7 +72,7 @@ def copy_test_only_data(dataset_train, dataset_test, train_idxs, val_idxs, test_
     targets_train = np.array(dataset_train.targets)
     targets_test = np.array(dataset_test.targets)
 
-    logging.info(
+    logging.warning(
         f"[+] total original data size: train {sum([len(train_idxs[user]) for user in range(total_users)])}, val {sum([len(val_idxs[user]) for user in range(total_users)])}, test {sum([len(test_idxs[user]) for user in range(total_users)])}"
     )
 
@@ -116,7 +116,7 @@ def copy_test_only_data(dataset_train, dataset_test, train_idxs, val_idxs, test_
         # check if there is any class that is in test and not in train set
         for c in test_classes:
             if c not in train_classes:
-                logging.info(f"t[!] test class {c} is not in train set")
+                logging.warning(f"t[!] test class {c} is not in train set")
                 raise ValueError(f"[!] test class {c} is not in train set")
 
     # * val only data
@@ -142,10 +142,10 @@ def copy_test_only_data(dataset_train, dataset_test, train_idxs, val_idxs, test_
         # check if there is any class that is in test and not in train set
         for c in test_classes:
             if c not in train_classes:
-                logging.info(f"t[!] val class {c} is not in train set")
+                logging.warning(f"t[!] val class {c} is not in train set")
                 raise ValueError(f"[!] val class {c} is not in train set")
 
-    logging.info(
+    logging.warning(
         f"[+] total data size after copy data: train {sum([len(train_idxs[user]) for user in range(total_users)])}, val {sum([len(val_idxs[user]) for user in range(total_users)])}, test {sum([len(test_idxs[user]) for user in range(total_users)])}"
     )
 
@@ -154,7 +154,7 @@ def copy_test_only_data(dataset_train, dataset_test, train_idxs, val_idxs, test_
 
 def create_generalization_loaders(data_name, data_root, num_train_users, num_gen_users, bz, alpha: float = 10, args=None):
     if args.env == "pfedgp":
-        logging.info(f"[+] create_generalization_loaders: env: {args.env} -> use pfedgp dataset")
+        logging.warning(f"[+] create_generalization_loaders: env: {args.env} -> use pfedgp dataset")
         # get datasets and idxs of each split
         train_dataset, test_dataset, train_idx, val_idx, test_idx = get_datasets(data_name, data_root)
         # create train / novel nodes partitions
@@ -207,7 +207,7 @@ def create_generalization_loaders(data_name, data_root, num_train_users, num_gen
         return generalization_loaders
 
     elif args.env == "pfedgp1":  # classes_per_node_dirichlet on test set
-        logging.info(f"[+] create_generalization_loaders: env: {args.env} -> use pfedgp1 dataset")
+        logging.warning(f"[+] create_generalization_loaders: env: {args.env} -> use pfedgp1 dataset")
         # get datasets and idxs of each split
         train_dataset, test_dataset, train_idx, val_idx, test_idx = get_datasets(data_name, data_root)
         # create train / novel nodes partitions
@@ -277,7 +277,7 @@ def create_generalization_loaders(data_name, data_root, num_train_users, num_gen
         return generalization_loaders
 
     elif args.env == "pfedgp2":  # do not split ood data
-        logging.info(f"[+] create_generalization_loaders: env: {args.env} -> use pfedgp2 dataset")
+        logging.warning(f"[+] create_generalization_loaders: env: {args.env} -> use pfedgp2 dataset")
         # get datasets and idxs of each split
         train_dataset, test_dataset, train_idx, val_idx, test_idx = get_datasets(data_name, data_root)
         nodes_idx = (train_idx, val_idx, test_idx)
@@ -330,7 +330,7 @@ def create_generalization_loaders(data_name, data_root, num_train_users, num_gen
         return generalization_loaders
 
     elif args.env == "pfedgp3":  # do not split ood data & classes_per_node_dirichlet on test set
-        logging.info(f"[+] create_generalization_loaders: env: {args.env} -> use pfedgp3 dataset")
+        logging.warning(f"[+] create_generalization_loaders: env: {args.env} -> use pfedgp3 dataset")
         # get datasets and idxs of each split
         train_dataset, test_dataset, train_idx, val_idx, test_idx = get_datasets(data_name, data_root)
         nodes_idx = (train_idx, val_idx, test_idx)
@@ -386,7 +386,7 @@ def create_generalization_loaders(data_name, data_root, num_train_users, num_gen
         return generalization_loaders
 
     elif "bmfl" in args.env:
-        logging.info(f"[+] create_generalization_loaders: env: {args.env} -> use bmfl dataset")
+        logging.warning(f"[+] create_generalization_loaders: env: {args.env} -> use bmfl dataset")
         idx_user_split = [[[] for _ in range(3)] for _ in range(2)]
         dataset_train, dataset_test, dict_users_train, dict_users_test = get_data(data_name, num_train_users, num_gen_users, alpha, args=args)
         train_dataset = dataset_train

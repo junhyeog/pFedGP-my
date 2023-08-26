@@ -82,16 +82,18 @@ parser.add_argument("--get-data-type", type=int, default=2)
 
 parser.add_argument("--sampler", type=str, default="TPE")
 parser.add_argument("--n_trials", type=int, default=4)
+parser.add_argument("--adap_epochs", type=int, default=1)
 
 
 def main(args, trial):
     # optuna params
     params = {
-        "lr": trial.suggest_float("lr", 0.001, 1, log=True),  # < 1
+        "lr": trial.suggest_float("lr", 0.005, 1, step=0.005),
         "wd": trial.suggest_float("wd", 5e-4, 1e-3, step=1e-4),
         "inner_steps": trial.suggest_int("inner_steps", 1, 5, step=2),
-        "num_gibbs_draws_train": trial.suggest_int("num_gibbs_draws_train", 10, 20, step=10),
-        "num_gibbs_draws_test": trial.suggest_int("num_gibbs_draws_test", 10, 30, step=10),
+        "adap_epochs": trial.suggest_int("adap_epochs", 1, 5, step=2),
+        "num_gibbs_draws_train": trial.suggest_int("num_gibbs_draws_train", 20, 20, step=10),
+        "num_gibbs_draws_test": trial.suggest_int("num_gibbs_draws_test", 30, 30, step=10),
     }
     # round float params
     for k, v in params.items():
@@ -125,10 +127,10 @@ def main(args, trial):
     #     exp_name += '_' + args.exp_name
 
     args.uuid = str(uuid.uuid1())[:8]
-    exp_name = f"env:{args.env}_seed:{args.seed}_"
-    exp_name += f"d:{args.data_name}_alpha:{args.alpha}_"
-    exp_name += f"clients:{args.num_clients},{args.num_client_agg},{args.num_novel_clients}_"
-    exp_name += f"T:{args.num_steps}_is:{args.inner_steps}_"
+    exp_name = f"env:{args.env}_s:{args.seed}_"
+    exp_name += f"d:{args.data_name}_a:{args.alpha}_"
+    exp_name += f"c:{args.num_clients},{args.num_client_agg},{args.num_novel_clients}_"
+    exp_name += f"T:{args.num_steps}_is:{args.inner_steps}_ae:{args.adap_epochs}_"
     exp_name += f"lr:{args.lr}_bs:{args.batch_size}_"
     exp_name += f"optim:{args.optimizer}_wd:{args.wd}_"
     exp_name += f"gdt:{args.get_data_type}_"
@@ -139,7 +141,7 @@ def main(args, trial):
 
     args.out_dir = (Path(args.save_path) / exp_name).as_posix()
     out_dir = save_experiment(args, None, return_out_dir=True, save_results=False)
-    logging.warning(f"[+] outdir: {out_dir}")
+    logging.warning(f"[+] out_dir: {out_dir}")
     writer = SummaryWriter(out_dir)
 
     @torch.no_grad()
@@ -183,6 +185,109 @@ def main(args, trial):
                 results[client_id]["correct"] = running_correct
                 results[client_id]["total"] = running_samples
 
+        return results
+
+    def eval_model_after_adap(init_global_model, client_ids, GPs, clients, split, ratio=1):
+        results = defaultdict(lambda: defaultdict(list))
+        sampled_clients = np.random.choice(client_ids, int(len(client_ids) * ratio), replace=False)
+        pbar = tqdm(sampled_clients)
+        ###
+        train_avg_loss = 0
+        num_samples = 0
+
+        for j, client_id in enumerate(pbar):
+            is_first_iter = True
+            # * train
+            curr_global_net = copy.deepcopy(init_global_model)
+            curr_global_net.train()
+            optimizer = get_optimizer(curr_global_net)
+
+            # build tree at each step
+            GPs[client_id], label_map, _, __ = build_tree(clients, client_id)
+            GPs[client_id].train()
+
+            for i in range(args.adap_epochs):
+                # init optimizers
+                optimizer.zero_grad()
+
+                # With GP take all data
+                for k, batch in enumerate(clients.train_loaders[client_id]):
+                    batch = (t.to(device) for t in batch)
+                    img, label = batch
+
+                    z = curr_global_net(img)
+                    X = torch.cat((X, z), dim=0) if k > 0 else z
+                    Y = torch.cat((Y, label), dim=0) if k > 0 else label
+
+                offset_labels = torch.tensor([label_map[l.item()] for l in Y], dtype=Y.dtype, device=Y.device)
+
+                loss = GPs[client_id](X, offset_labels, to_print=to_print)
+                loss *= args.loss_scaler
+
+                # propagate loss
+                #### >>> original code
+                # loss.backward()
+                # torch.nn.utils.clip_grad_norm_(curr_global_net.parameters(), 50)
+                # optimizer.step()
+                ### <<<
+                ### ! >>> fixed
+                if isinstance(loss, float):
+                    loss = torch.tensor(loss)
+                else:
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(curr_global_net.parameters(), 50)
+                    optimizer.step()
+                ### ! <<<
+
+                train_avg_loss += loss.item() * offset_labels.shape[0]
+                num_samples += offset_labels.shape[0]
+
+            # erase tree (no need to save it)
+            GPs[client_id].tree = None
+
+            # * test
+            with torch.no_grad():
+                global_model = curr_global_net
+                global_model.eval()
+
+                running_loss, running_correct, running_samples = 0.0, 0.0, 0.0
+                if split == "test":
+                    curr_data = clients.test_loaders[client_id]
+                elif split == "val":
+                    curr_data = clients.val_loaders[client_id]
+                else:
+                    curr_data = clients.train_loaders[client_id]
+
+                GPs[client_id], label_map, X_train, Y_train = build_tree(clients, client_id)
+                GPs[client_id].eval()
+
+                for batch_count, batch in enumerate(curr_data):
+                    img, label = tuple(t.to(device) for t in batch)
+                    Y_test = torch.tensor([label_map[l.item()] for l in label], dtype=label.dtype, device=label.device)
+
+                    X_test = global_model(img)
+                    loss, pred = GPs[client_id].forward_eval(X_train, Y_train, X_test, Y_test, is_first_iter)
+
+                    running_loss += loss.item()
+                    running_correct += pred.argmax(1).eq(Y_test).sum().item()
+                    running_samples += len(Y_test)
+
+                    is_first_iter = False
+
+                # erase tree (no need to save it)
+                GPs[client_id].tree = None
+
+                if running_samples > 0:
+                    results[client_id]["loss"] = running_loss / (batch_count + 1)
+                    results[client_id]["correct"] = running_correct
+                    results[client_id]["total"] = running_samples
+
+                step_iter.set_description(
+                    f"Test after adaptation, client: {client_id}, Loss: {results[client_id]['loss']}, Acc: {results[client_id]['correct'] / results[client_id]['total']:.4f} ({results[client_id]['correct']}/{results[client_id]['total']}))"
+                )
+
+        train_avg_loss /= num_samples
+        writer.add_scalar("adap/loss", train_avg_loss, step)
         return results
 
     ###############################
@@ -377,7 +482,7 @@ def main(args, trial):
             writer.add_scalar(f"train_{ratio}/acc_weighted", train_avg_acc_weighted, step)
             ### ! <<<
 
-            val_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="test", ratio=1 if (step + 1) == args.num_steps else ratio)
+            val_results = eval_model_after_adap(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="test", ratio=1 if (step + 1) == args.num_steps else ratio)
             val_avg_loss, val_avg_acc = calc_metrics(val_results)
             val_avg_loss_weighted, val_avg_acc_weighted = calc_weighted_metrics(val_results, client_datas_size_val)
             logging.info(f"[+] (val, ratio={ratio}) Step: {step + 1}, AVG Loss: {val_avg_loss:.4f},  AVG Acc Val: {val_avg_acc:.4f}")
@@ -389,7 +494,7 @@ def main(args, trial):
             writer.add_scalar(f"val_{ratio}/acc_weighted", val_avg_acc_weighted, step)
 
             ### ! fixed >>> test ood user during training
-            ood_results = eval_model(net, range(args.num_novel_clients), GPs, clients, split="test")
+            ood_results = eval_model_after_adap(net, range(args.num_novel_clients), GPs, clients, split="test")
             avg_ood_loss, avg_ood_acc = calc_metrics(ood_results)
             avg_ood_loss_weighted, avg_ood_acc_weighted = calc_weighted_metrics(ood_results, client_datas_size_test)
 
@@ -406,7 +511,7 @@ def main(args, trial):
     # ! save
     ckpt_path = os.path.join(out_dir, f"ckpt.pth")
     torch.save({"args": args, "net": net.state_dict()}, ckpt_path)
-    logging.info(f"[+] Saved checkpoint to {ckpt_path}")
+    logging.warning(f"[+] Saved checkpoint to {ckpt_path}")
 
     # # ! final test
     # test_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="test")

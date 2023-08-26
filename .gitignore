@@ -142,3 +142,4 @@ datasets/
 experiments/datafolder
 studys/
 .vscode/
+_ignore*

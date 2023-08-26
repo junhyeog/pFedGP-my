@@ -3,7 +3,8 @@ import subprocess
 import time
 
 
-def run(cmds, n, ilow=False, type=0, sleep=5):
+def run(cmds, n, ilow=False, type=0, sleep=5, job_name=""):
+    job_name = f"{job_name}_n:{n}_l:{ilow}"
     for i in range((n - len(cmds) % n) % n):
         cmds.append(cmds[i])
     print(f"len(cmds): {len(cmds)} -> {len(cmds)/n} jobs")
@@ -11,12 +12,12 @@ def run(cmds, n, ilow=False, type=0, sleep=5):
         print(cmd)
     for i in range(0, len(cmds), n):
         if type == 0:
-            cmd = [f"sbatch -n {n} -c 8 --exclude klimt,goya,haring,manet,hongdo {'--qos=ilow' if ilow else ''} --gres=gpu:normal:1 run_sbatch"]
+            cmd = [f"sbatch -J {job_name} -n {n} -c 8 --exclude klimt,goya,haring,manet,hongdo {'--qos=ilow' if ilow else ''} --gres=gpu:normal:1 run_sbatch"]
         elif type == 1:
-            cmd = [f"sbatch -n {n} -c 12 --exclude cerny,kandinsky,namjune,magritte {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 run_sbatch"]
+            cmd = [f"sbatch -J {job_name} -n {n} -c 12 --exclude cerny,kandinsky,namjune,magritte {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 run_sbatch"]
         else:
-            # cmd = [f"sbatch -n {n} -c 80  --exclude haring,vermeer {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 --partition a6000 run_sbatch"]
-            cmd = [f"sbatch -n {n} -c 24 {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 --partition a6000 run_sbatch"]
+            # cmd = [f"sbatch -J {job_name} -n {n} -c 80  --exclude haring,vermeer {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 --partition a6000 run_sbatch"]
+            cmd = [f"sbatch -J {job_name} -n {n} -c 24 {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 --partition a6000 run_sbatch"]
 
         for j in range(n):
             cmd.append("'" + cmds[i + j] + "'")
@@ -52,9 +53,10 @@ params = {
     "num-client-agg": 10,
     "data-name": ["cifar10"],
     "alpha": [0.1],
-    "exp-name": ["copy_tune_1"],
+    "exp-name": "copy_tune_2",
+    "n_trials": 16,
 }
 
 cmds = make_cmds("main.py", params)
 for i in range(1):
-    run(cmds, n=1, ilow=0, type=0, sleep=5)  # type = normal: 0, large: 1, a6000: 2
+    run(cmds, n=1, ilow=0, type=1, sleep=5, job_name=f"{params['exp-name']}_nt:{params['n_trials']}")  # type = normal: 0, large: 1, a6000: 2
