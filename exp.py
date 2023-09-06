@@ -51,8 +51,8 @@ params = {
     "num-clients": 130,
     "num-novel-clients": 30,
     "num-client-agg": 10,
-    "data-name": ["cifar10"],
-    "alpha": [0.1],
+    "data-name": ["cifar100"],
+    "alpha": [0.5],
     "exp-name": "copy_tune_2",
     "n_trials": 16,
 }
@@ -60,3 +60,21 @@ params = {
 cmds = make_cmds("main.py", params)
 for i in range(1):
     run(cmds, n=1, ilow=0, type=1, sleep=5, job_name=f"{params['exp-name']}_nt:{params['n_trials']}")  # type = normal: 0, large: 1, a6000: 2
+
+
+# params = {
+#     "env": "bmfl",
+#     "seed": 777,
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     "data-name": ["cifar100"],
+#     "alpha": [0.5],
+#     "exp-name": "copy_adap_1",
+#     "n_trials": 16,
+# }
+
+# cmds = make_cmds("main_adap.py", params)
+# for i in range(1):
+#     run(cmds, n=1, ilow=0, type=1, sleep=5, job_name=f"{params['exp-name']}_nt:{params['n_trials']}")  # type = normal: 0, large: 1, a6000: 2

@@ -187,7 +187,7 @@ def main(args, trial):
 
         return results
 
-    def eval_model_after_adap(init_global_model, client_ids, GPs, clients, split, ratio=1):
+    def eval_model_after_adap(init_global_model, client_ids, GPs, clients, split, ratio=1, tag='test'):
         results = defaultdict(lambda: defaultdict(list))
         sampled_clients = np.random.choice(client_ids, int(len(client_ids) * ratio), replace=False)
         pbar = tqdm(sampled_clients)
@@ -287,7 +287,7 @@ def main(args, trial):
                 )
 
         train_avg_loss /= num_samples
-        writer.add_scalar("adap/loss", train_avg_loss, step)
+        writer.add_scalar(f"{tag}/adap_loss", train_avg_loss, step)
         return results
 
     ###############################
@@ -482,7 +482,7 @@ def main(args, trial):
             writer.add_scalar(f"train_{ratio}/acc_weighted", train_avg_acc_weighted, step)
             ### ! <<<
 
-            val_results = eval_model_after_adap(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="test", ratio=1 if (step + 1) == args.num_steps else ratio)
+            val_results = eval_model_after_adap(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="test", ratio=1 if (step + 1) == args.num_steps else ratio, tag=f"val_{ratio}")
             val_avg_loss, val_avg_acc = calc_metrics(val_results)
             val_avg_loss_weighted, val_avg_acc_weighted = calc_weighted_metrics(val_results, client_datas_size_val)
             logging.info(f"[+] (val, ratio={ratio}) Step: {step + 1}, AVG Loss: {val_avg_loss:.4f},  AVG Acc Val: {val_avg_acc:.4f}")
@@ -494,7 +494,7 @@ def main(args, trial):
             writer.add_scalar(f"val_{ratio}/acc_weighted", val_avg_acc_weighted, step)
 
             ### ! fixed >>> test ood user during training
-            ood_results = eval_model_after_adap(net, range(args.num_novel_clients), GPs, clients, split="test")
+            ood_results = eval_model_after_adap(net, range(args.num_novel_clients), GPs, clients, split="test", tag=f"ood_{args.alpha}")
             avg_ood_loss, avg_ood_acc = calc_metrics(ood_results)
             avg_ood_loss_weighted, avg_ood_acc_weighted = calc_weighted_metrics(ood_results, client_datas_size_test)
 
