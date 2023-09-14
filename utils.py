@@ -8,6 +8,8 @@ import warnings
 from contextlib import contextmanager
 from pathlib import Path
 
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
@@ -297,3 +299,76 @@ def calc_weighted_metrics(results, client_data_size):
     avg_acc = np.average([results[user_idx]["correct"] / results[user_idx]["total"] for user_idx in user_idxs], weights=weights)
 
     return avg_loss, avg_acc
+
+
+def calc_bins(preds, labels_oneh):
+  # Assign each prediction to a bin
+  num_bins = 10
+  bins = np.linspace(0.1, 1, num_bins) # array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1. ])
+  binned = np.digitize(preds, bins) # (-inf, 0.1) -> 0, [0.1, 0.2) -> 1, ..., [1.0, inf) -> 10
+
+  # Save the accuracy, confidence and size of each bin
+  bin_accs = np.zeros(num_bins)
+  bin_confs = np.zeros(num_bins)
+  bin_sizes = np.zeros(num_bins)
+
+  for bin in range(num_bins):
+    bin_sizes[bin] = len(preds[binned == bin])
+    if bin_sizes[bin] > 0:
+      bin_accs[bin] = (labels_oneh[binned==bin]).sum() / bin_sizes[bin] # y-axis: relative frequncy
+      bin_confs[bin] = (preds[binned==bin]).sum() / bin_sizes[bin] # x-axis : mean pred value of bin 
+
+  return bins, binned, bin_accs, bin_confs, bin_sizes
+
+
+def get_metrics(preds, labels_oneh):
+  ECE = 0
+  MCE = 0
+  bins, _, bin_accs, bin_confs, bin_sizes = calc_bins(preds, labels_oneh)
+
+  for i in range(len(bins)):
+    abs_conf_dif = abs(bin_accs[i] - bin_confs[i])
+    ECE += (bin_sizes[i] / sum(bin_sizes)) * abs_conf_dif
+    MCE = max(MCE, abs_conf_dif)
+
+  return ECE, MCE
+
+
+def draw_reliability_graph(preds, labels_oneh):
+  ECE, MCE = get_metrics(preds, labels_oneh)
+  bins, _, bin_accs, _, _ = calc_bins(preds, labels_oneh)
+
+  fig = plt.figure(figsize=(8, 8))
+  ax = fig.gca()
+
+  # x/y limits
+  ax.set_xlim(0, 1.05)
+  ax.set_ylim(0, 1)
+
+  # x/y labels
+  plt.xlabel('Confidence')
+  plt.ylabel('Accuracy')
+
+  # Create grid
+  ax.set_axisbelow(True)
+  ax.grid(color='gray', linestyle='dashed')
+
+  # Error bars
+  plt.bar(bins, bins,  width=0.1, alpha=0.3, edgecolor='black', color='r', hatch='\\')
+
+  # Draw bars and identity line
+  plt.bar(bins, bin_accs, width=0.1, alpha=1, edgecolor='black', color='b')
+  plt.plot([0,1],[0,1], '--', color='gray', linewidth=2)
+
+  # Equally spaced axes
+  plt.gca().set_aspect('equal', adjustable='box')
+
+  # ECE and MCE legend
+  ECE_patch = mpatches.Patch(color='green', label='ECE = {:.2f}%'.format(ECE*100))
+  MCE_patch = mpatches.Patch(color='red', label='MCE = {:.2f}%'.format(MCE*100))
+  plt.legend(handles=[ECE_patch, MCE_patch])
+
+  #plt.show()
+  #plt.savefig('calibrated_network.png', bbox_inches='tight')
+  #plt.close(fig)
+  return fig, ECE, MCE

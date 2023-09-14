@@ -416,9 +416,36 @@ def create_generalization_loaders(data_name, data_root, num_train_users, num_gen
                 data = test_dataset
             for g_i in range(len(idx_user_split)):
                 for u_idx in idx_user_split[g_i][s_i]:
-                    loaders.append(DataLoader(Subset(data, u_idx), bz, (s_i == 0), num_workers=4))
+                    loaders.append(DataLoader(Subset(data, u_idx), bz, (s_i == 0), num_workers=0))
             generalization_loaders.append(loaders)
-        return generalization_loaders
+            
+        # find labels that in the test loaders but not in the train loaders
+        test_only_labels = []
+        for g_i in range(len(idx_user_split)):
+            for client_idx in range(num_gen_users if g_i == 0 else num_train_users):
+                labels_train = [train_dataset.targets[idx] for idx in idx_user_split[g_i][0][client_idx]]
+                labels_test = [test_dataset.targets[idx] for idx in idx_user_split[g_i][2][client_idx]]
+                test_only = set(labels_test) - set(labels_train)
+                test_only = list(test_only)
+                test_only.sort()
+                test_only_labels.append(test_only)
+        
+        # build pool loader
+        # k data items for each class
+        k = 10
+        pool_idxs = []
+        num_classes = len(train_dataset.classes)
+        labels = torch.tensor(train_dataset.targets)
+        
+        for c in range(num_classes):
+            # get random k data items whose label is c
+            idxs = torch.where(labels == c)[0]
+            random_idxs_idxs = torch.randperm(len(idxs))[:k]
+            pool_idxs.append(idxs[random_idxs_idxs])
+        
+        pool_dataset = Subset(train_dataset, np.concatenate(pool_idxs))
+        # pool_loader = DataLoader(pool_dataset, bz, shuffle=True, num_workers=0)
+        return generalization_loaders, pool_dataset, test_only_labels
 
 
 def idx_partition_per_group(train_idx, val_idx, test_idx, novel_nodes_size=0.2):

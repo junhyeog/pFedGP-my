@@ -19,9 +19,9 @@ from experiments.ood_generalization.clients import GenBaseClients
 # from ..backbone import CNNCifar, CNNTarget
 # from .clients import GenBaseClients
 from pFedGP_my.Learner import pFedGPFullLearner
-from utils import (calc_metrics, calc_weighted_metrics, draw_reliability_graph,
-                   get_device, offset_client_classes, save_experiment,
-                   set_logger, set_seed, str2bool)
+from utils import (calc_metrics, calc_weighted_metrics, get_device,
+                   offset_client_classes, save_experiment, set_logger,
+                   set_seed, str2bool)
 
 parser = argparse.ArgumentParser(description="Personalized Federated Learning")
 
@@ -76,7 +76,7 @@ parser.add_argument(
 #############################
 parser.add_argument("--gpus", type=str, default="0", help="gpu device ID")
 parser.add_argument("--exp-name", type=str, default="", help="suffix for exp name")
-parser.add_argument("--eval-every", type=int, default=50, help="eval every X selected steps")
+parser.add_argument("--eval-every", type=int, default=100, help="eval every X selected steps")
 parser.add_argument("--save-path", type=str, default="./output/pFedGP", help="dir path for output file")  # change
 parser.add_argument("--seed", type=int, default=42, help="seed value")
 
@@ -91,11 +91,11 @@ parser.add_argument("--test_dist", type=str, choices=["dirichlet", "consistent",
 def main(args, trial):
     # optuna params
     params = {
-        "lr": trial.suggest_float("lr", 0.01, 0.1, step=0.01),  # < 1
-        "wd": trial.suggest_float("wd", 0, 1e-3, step=1e-5),
-        "inner_steps": trial.suggest_int("inner_steps", 5, 5, step=2),
-        "num_gibbs_draws_train": trial.suggest_int("num_gibbs_draws_train", 20, 20, step=10),
-        "num_gibbs_draws_test": trial.suggest_int("num_gibbs_draws_test", 30, 30, step=10),
+        "lr": trial.suggest_float("lr", 0.001, 1, log=True),  # < 1
+        "wd": trial.suggest_float("wd", 5e-4, 1e-3, step=1e-4),
+        "inner_steps": trial.suggest_int("inner_steps", 1, 5, step=2),
+        "num_gibbs_draws_train": trial.suggest_int("num_gibbs_draws_train", 10, 20, step=10),
+        "num_gibbs_draws_test": trial.suggest_int("num_gibbs_draws_test", 10, 30, step=10),
     }
     # round float params
     for k, v in params.items():
@@ -108,11 +108,11 @@ def main(args, trial):
     for k, v in vars(args).items():
         print(f" - {k:20}: {v}")
     # args.trial = trial
-    # # avoid duplicate sets
-    # for previous_trial in trial.study.trials:
-    #     if previous_trial.state == optuna.trial.TrialState.COMPLETE and trial.params == previous_trial.params:
-    #         print(f"[+] Duplicated trial: {trial.params}, return {previous_trial.values}")
-    #         return previous_trial.values
+    # avoid duplicate sets
+    for previous_trial in trial.study.trials:
+        if previous_trial.state == optuna.trial.TrialState.COMPLETE and trial.params == previous_trial.params:
+            print(f"[+] Duplicated trial: {trial.params}, return {previous_trial.values}")
+            return previous_trial.values
 
     set_logger()
     set_seed(args.seed)
@@ -131,13 +131,12 @@ def main(args, trial):
     args.uuid = str(uuid.uuid1())[:8]
     exp_name = f"env:{args.env}_seed:{args.seed}_"
     exp_name += f"d:{args.data_name}_alpha:{args.alpha}_"
-    exp_name += f"test_dist:{args.test_dist}_"
     exp_name += f"clients:{args.num_clients},{args.num_client_agg},{args.num_novel_clients}_"
     exp_name += f"T:{args.num_steps}_is:{args.inner_steps}_"
     exp_name += f"lr:{args.lr}_bs:{args.batch_size}_"
     exp_name += f"optim:{args.optimizer}_wd:{args.wd}_"
     exp_name += f"gdt:{args.get_data_type}_"
-    # exp_name += f"obj:{args.objective}_"
+    exp_name += f"obj:{args.objective}_"
     exp_name += f"ngd_train:{args.num_gibbs_draws_train}_"
     exp_name += f"ngd_test:{args.num_gibbs_draws_test}_"
     exp_name += f"{args.uuid}_{trial.number}"
@@ -154,7 +153,7 @@ def main(args, trial):
         sampled_clients = np.random.choice(client_ids, int(len(client_ids) * ratio), replace=False)
         pbar = tqdm(sampled_clients)
         # pbar = tqdm(client_ids)
-        for i, client_id in enumerate(pbar):
+        for client_id in pbar:
             is_first_iter = True
             running_loss, running_correct, running_samples = 0.0, 0.0, 0.0
             if split == "test":
@@ -164,24 +163,16 @@ def main(args, trial):
             else:
                 curr_data = clients.train_loaders[client_id]
 
-            if split == "train": 
-                GPs[client_id], label_map, X_train, Y_train = build_tree(clients, client_id)
-            else:
-                GPs[client_id], label_map, X_train, Y_train = build_tree_with_pool(clients, client_id)
+            GPs[client_id], label_map, X_train, Y_train = build_tree(clients, client_id)
             GPs[client_id].eval()
 
-            if i==29:
-                import ipdb; ipdb.set_trace(context=5)
-                
             for batch_count, batch in enumerate(curr_data):
                 img, label = tuple(t.to(device) for t in batch)
                 Y_test = torch.tensor([label_map[l.item()] for l in label], dtype=label.dtype, device=label.device)
-                if set(Y_test.tolist()) - set(Y_train.tolist()) != set():
-                    ###
-                    import ipdb; ipdb.set_trace(context=5)
-                    ###
+
                 X_test = global_model(img)
                 loss, pred = GPs[client_id].forward_eval(X_train, Y_train, X_test, Y_test, is_first_iter)
+
                 running_loss += loss.item()
                 running_correct += pred.argmax(1).eq(Y_test).sum().item()
                 running_samples += len(Y_test)
@@ -197,69 +188,6 @@ def main(args, trial):
                 results[client_id]["total"] = running_samples
 
         return results
-    
-    
-    @torch.no_grad()
-    def eval_model_with_calibration(global_model, client_ids, GPs, clients, split, ratio=1):
-        preds = []
-        labels_oneh = []
-        results = defaultdict(lambda: defaultdict(list))
-        global_model.eval()
-        sampled_clients = np.random.choice(client_ids, int(len(client_ids) * ratio), replace=False)
-        pbar = tqdm(sampled_clients)
-        # pbar = tqdm(client_ids)
-        for client_id in pbar:
-            is_first_iter = True
-            running_loss, running_correct, running_samples = 0.0, 0.0, 0.0
-            if split == "test":
-                curr_data = clients.test_loaders[client_id]
-            elif split == "val":
-                curr_data = clients.val_loaders[client_id]
-            else:
-                curr_data = clients.train_loaders[client_id]
-            
-            if split == "train": 
-                GPs[client_id], label_map, X_train, Y_train = build_tree(clients, client_id)
-            else:
-                GPs[client_id], label_map, X_train, Y_train = build_tree_with_pool(clients, client_id)
-            GPs[client_id].eval()
-            
-            reversed_label_map = {v: k for k, v in label_map.items()}
-
-            for batch_count, batch in enumerate(curr_data):
-                img, label = tuple(t.to(device) for t in batch)
-                Y_test = torch.tensor([label_map[l.item()] for l in label], dtype=label.dtype, device=label.device)
-
-                
-                X_test = global_model(img)
-                loss, pred = GPs[client_id].forward_eval(X_train, Y_train, X_test, Y_test, is_first_iter)
-
-                running_loss += loss.item()
-                running_correct += pred.argmax(1).eq(Y_test).sum().item()
-                running_samples += len(Y_test)
-
-                is_first_iter = False
-                
-                ## ADDED for calibration
-                # pred = torch.softmax(pred, -1)
-                expanded_pred = torch.zeros(pred.shape[0], num_classes, dtype=pred.dtype, device=pred.device)
-                for i in range(pred.shape[0]):
-                    for j in range(pred.shape[1]):
-                        expanded_pred[i][reversed_label_map[j]] = pred[i][j]
-                
-                label_oneh = torch.nn.functional.one_hot(label, num_classes=num_classes)
-                preds.extend(expanded_pred)
-                labels_oneh.extend(label_oneh)
-
-            # erase tree (no need to save it)
-            GPs[client_id].tree = None
-
-            if running_samples > 0:
-                results[client_id]["loss"] = running_loss / (batch_count + 1)
-                results[client_id]["correct"] = running_correct
-                results[client_id]["total"] = running_samples
-
-        return results, torch.cat(preds), torch.cat(labels_oneh)
 
     ###############################
     # init net and GP #
@@ -300,7 +228,11 @@ def main(args, trial):
         return client_num_data
 
     clients = GenBaseClients(args.data_name, args.data_path, args.num_clients, n_gen_clients=args.num_novel_clients, alpha=args.alpha, batch_size=args.batch_size, args=args)
-    client_num_classes = client_counts(args.num_clients)
+    
+    # ! use full label
+    # client_num_classes = client_counts(args.num_clients)
+    client_num_classes = {i: num_classes for i in range(args.num_clients)}
+    
     client_datas_size_train = client_counts_data(args.num_clients, "train")
     client_datas_size_val = client_counts_data(args.num_clients, "val")
     client_datas_size_test = client_counts_data(args.num_clients, "test")
@@ -348,38 +280,11 @@ def main(args, trial):
         client_labels, client_indices = torch.sort(torch.unique(Y))
         label_map = {client_labels[i].item(): client_indices[i].item() for i in range(client_labels.shape[0])}
         offset_labels = torch.tensor([label_map[l.item()] for l in Y], dtype=Y.dtype, device=Y.device)
-
-        GPs[client_id].build_base_tree(X, offset_labels)  # build tree
-        return GPs[client_id], label_map, X, offset_labels
-    
-    
-    @torch.no_grad()
-    def build_tree_with_pool(clients, client_id):
-        """
-        Build GP tree per client
-        :return: List of GPs
-        """
-        for k, batch in enumerate(clients.train_loaders[client_id]):
-            batch = (t.to(device) for t in batch)
-            train_data, clf_labels = batch
-
-            z = net(train_data)
-            X = torch.cat((X, z), dim=0) if k > 0 else z
-            Y = torch.cat((Y, clf_labels), dim=0) if k > 0 else clf_labels
-                
-        for k, batch in enumerate(clients.pool_dataset):
-            train_data, clf_label = batch
-            if clf_label in clients.test_only_labels[client_id]:
-                train_data = train_data.to(device)
-                z = net(train_data.unsqueeze(0))
-                X = torch.cat((X, z), dim=0)
-                Y = torch.cat((Y, torch.tensor([clf_label], device=Y.device)), dim=0)
-
-        # build label map
-        client_labels, client_indices = torch.sort(torch.unique(Y))
-        label_map = {client_labels[i].item(): client_indices[i].item() for i in range(client_labels.shape[0])}
-        offset_labels = torch.tensor([label_map[l.item()] for l in Y], dtype=Y.dtype, device=Y.device)
-
+        
+        # ! use full label
+        offset_labels = Y
+        label_map = {i: i for i in range(num_classes)}
+        
         GPs[client_id].build_base_tree(X, offset_labels)  # build tree
         return GPs[client_id], label_map, X, offset_labels
 
@@ -391,6 +296,7 @@ def main(args, trial):
     last_eval = -1
     step_iter = trange(args.num_steps)
     results = defaultdict(list)
+
     for step in step_iter:
         # print tree stats every 100 epochs
         to_print = True if step % 100 == 0 else False
@@ -430,7 +336,7 @@ def main(args, trial):
                     Y = torch.cat((Y, label), dim=0) if k > 0 else label
 
                 offset_labels = torch.tensor([label_map[l.item()] for l in Y], dtype=Y.dtype, device=Y.device)
-
+                offset_labels = Y  # ! use full label
                 loss = GPs[client_id](X, offset_labels, to_print=to_print)
                 loss *= args.loss_scaler
 
@@ -481,11 +387,9 @@ def main(args, trial):
             writer.add_scalar(f"train_{ratio}/acc", train_avg_acc, step)
             writer.add_scalar(f"train_{ratio}/loss_weighted", train_avg_loss_weighted, step)
             writer.add_scalar(f"train_{ratio}/acc_weighted", train_avg_acc_weighted, step)
-            # ! <<<
-            if (step + 1) == args.num_steps: # Measure Calibration
-                val_results, val_preds, val_labels_oneh = eval_model_with_calibration(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="test", ratio=1 if (step + 1) == args.num_steps else ratio)
-            else:
-                val_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="test", ratio=1 if (step + 1) == args.num_steps else ratio)
+            ### ! <<<
+
+            val_results = eval_model(net, range(args.num_novel_clients, args.num_clients), GPs, clients, split="test", ratio=1 if (step + 1) == args.num_steps else ratio)
             val_avg_loss, val_avg_acc = calc_metrics(val_results)
             val_avg_loss_weighted, val_avg_acc_weighted = calc_weighted_metrics(val_results, client_datas_size_val)
             logging.info(f"[+] (val, ratio={ratio}) Step: {step + 1}, AVG Loss: {val_avg_loss:.4f},  AVG Acc Val: {val_avg_acc:.4f}")
@@ -497,10 +401,7 @@ def main(args, trial):
             writer.add_scalar(f"val_{ratio}/acc_weighted", val_avg_acc_weighted, step)
 
             ### ! fixed >>> test ood user during training
-            if (step + 1) == args.num_steps: # Measure Calibration
-                ood_results, ood_preds, ood_labels_oneh = eval_model_with_calibration(net, range(args.num_novel_clients), GPs, clients, split="test")
-            else:
-                ood_results = eval_model(net, range(args.num_novel_clients), GPs, clients, split="test")
+            ood_results = eval_model(net, range(args.num_novel_clients), GPs, clients, split="test")
             avg_ood_loss, avg_ood_acc = calc_metrics(ood_results)
             avg_ood_loss_weighted, avg_ood_acc_weighted = calc_weighted_metrics(ood_results, client_datas_size_test)
 
@@ -511,39 +412,12 @@ def main(args, trial):
             writer.add_scalar(f"ood_{args.alpha}/loss_weighted", avg_ood_loss_weighted, step)
             writer.add_scalar(f"ood_{args.alpha}/acc_weighted", avg_ood_acc_weighted, step)
             ### ! <<<
-            
-            if (step + 1) == args.num_steps: # Measure Calibration
-                val_labels_total = val_labels_oneh.cpu().numpy()
-                ood_labels_total = ood_labels_oneh.cpu().numpy()
-                for reg_factor in [0.0, 0.1, 0.2, 0.3]:
-                    # mixture
-                    expanded_val_pred_reg = (1 - reg_factor) * val_preds + reg_factor * torch.ones_like(val_preds) / num_classes
-                    val_preds_total = expanded_val_pred_reg.cpu().numpy()
-                    fig, ECE, MCE = draw_reliability_graph(val_preds_total, val_labels_total)
-                    writer.add_scalar(f'val_cali_{reg_factor}/ECE', ECE*100, step)
-                    writer.add_scalar(f'val_cali_{reg_factor}/MCE', MCE*100, step)
-                    writer.add_figure(f'val_cali_{reg_factor}/calibrated_network', fig, step, close=True)
-                    
-                    expanded_ood_pred_reg = (1 - reg_factor) * ood_preds + reg_factor * torch.ones_like(ood_preds) / num_classes
-                    ood_preds_total = expanded_ood_pred_reg.cpu().numpy()
-                    fig, ECE, MCE = draw_reliability_graph(ood_preds_total, ood_labels_total)
-                    writer.add_scalar(f'ood_cali_{reg_factor}/ECE', ECE*100, step)
-                    writer.add_scalar(f'ood_cali_{reg_factor}/MCE', MCE*100, step)
-                    writer.add_figure(f'ood_cali_{reg_factor}/calibrated_network', fig, step, close=True)
-                
 
     logging.info(f"\n[+] (train) loss: {train_avg_loss:.4f}")
 
     # ! save
     ckpt_path = os.path.join(out_dir, f"ckpt.pth")
-    torch.save({
-        "args": args,
-        "net": net.state_dict(),
-        "val_preds_total": val_preds_total,
-        "val_labels_total": val_labels_total,
-        "ood_preds_total": ood_preds_total,
-        "ood_labels_total": ood_labels_total,
-    }, ckpt_path)
+    torch.save({"args": args, "net": net.state_dict()}, ckpt_path)
     logging.info(f"[+] Saved checkpoint to {ckpt_path}")
 
     # # ! final test

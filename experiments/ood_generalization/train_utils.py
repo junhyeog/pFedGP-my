@@ -82,6 +82,34 @@ def update_transform(args, transform):
     return transform
 
 
+def iid_updated(dataset, num_users, server_data_ratio):
+    """
+    Sample I.I.D. client data from MNIST dataset
+    :param dataset:
+    :param num_users:
+    :return: dict of image index
+    """
+    num_items = int(len(dataset) / num_users)
+    dict_users, all_idxs = {}, [i for i in range(len(dataset))]
+
+    if server_data_ratio > 0.0:
+        dict_users["server"] = set(np.random.choice(all_idxs, int(len(dataset) * server_data_ratio), replace=False))
+
+    for i in range(num_users):
+        dict_users[i] = set(np.random.choice(all_idxs, num_items, replace=False))
+        all_idxs = list(set(all_idxs) - dict_users[i])
+
+    random.shuffle(all_idxs)
+    while len(all_idxs) > 0:
+        for i in range(num_users):
+            if len(all_idxs) == 0:
+                break
+            dict_users[i].add(all_idxs.pop())
+
+    dict_users = {client_idx: np.array(list(dict_users[client_idx])) for client_idx in range(num_users)}
+    return dict_users
+
+
 # >>> data split from pFL-Bench
 # https://github.com/alibaba/FederatedScope
 def _split_according_to_prior(label, client_num, prior):  # 각 class에 대해서 prior와 같은 비율로 각 client에게 나눔
@@ -110,7 +138,8 @@ def _split_according_to_prior(label, client_num, prior):  # 각 class에 대해�
 
     for i in range(len(idx_slice)):
         np.random.shuffle(idx_slice[i])
-    return idx_slice
+    dict_users = {client_idx: np.array(idx_slice[client_idx]) for client_idx in range(client_num)}
+    return dict_users
 
 
 def dirichlet_distribution_noniid_slice(label, client_num, alpha, min_size=1, prior=None):
@@ -167,7 +196,7 @@ def dirichlet_distribution_noniid_slice(label, client_num, alpha, min_size=1, pr
 # <<< data split from pFL-Bench
 def get_data(dataset, num_users, ood_users, alpha, args=None):
     get_data_type = getattr(args, "get_data_type", 2)
-    # type 0:
+    # type 0: deprecated
     # remove_test_only = False
     # remove_train_only = True
     # move_data = False
@@ -183,6 +212,13 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
     # move_data, k=2: -> X, X, X, X
     # move_data, k=3: -> ?, ?, ?, ?
     # move_data, k=4: -> X, X, X, X
+    
+    # type 0: do nothing
+    remove_test_only = False
+    remove_train_only = False
+    move_data = False
+    copy_data = False
+    k=0
 
     # type 1: move
     if get_data_type == 1:
@@ -199,17 +235,51 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
         # cifar100_0.5   : train 50581, test 8419
         # cifar10_0.1    : train 50229, test 9703
 
-    # type 2: copy
+    # type 2: copy one of test only data
     elif get_data_type == 2:
         remove_test_only = False
         remove_train_only = False
         move_data = False
         copy_data = True
+        k = 0
 
         ###
         # cifar100_5.0   :
         # cifar100_0.5   :
         # cifar10_0.1    : train 50297, test 10000
+
+    # type 3: copy all
+    elif get_data_type == 3:
+        remove_test_only = False
+        remove_train_only = False
+        move_data = False
+        copy_data = True
+        k = 1
+
+    # type 4: remove test only
+    elif get_data_type == 4:
+        remove_test_only = True
+        remove_train_only = False
+        move_data = False
+        copy_data = False
+        k = 0
+
+    # type 5: move half of test only data
+    elif get_data_type == 5:
+        remove_test_only = False
+        remove_train_only = False
+        move_data = True
+        copy_data = False
+        k = 0.5
+
+    # type 6: copy half of test only data
+    elif get_data_type == 6:
+        remove_test_only = False
+        remove_train_only = False
+        move_data = False
+        copy_data = True
+        k = 0.5
+
 
     total_users = num_users + ood_users
     if dataset == "cifar10":
@@ -225,7 +295,15 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
     targets_test = np.array(dataset_test.targets)
 
     dict_users_train = dirichlet_distribution_noniid_slice(targets_train, total_users, alpha)
-    dict_users_test = dirichlet_distribution_noniid_slice(targets_test, total_users, alpha)
+    if args.test_dist == "dirichlet":
+        dict_users_test = dirichlet_distribution_noniid_slice(targets_test, total_users, alpha)
+    elif args.test_dist == "consistent":
+        train_label_distribution = [[targets_train[idx] for idx in dict_users_train[user_idx]] for user_idx in range(total_users)]
+        dict_users_test = dirichlet_distribution_noniid_slice(targets_test, total_users, args.alpha, prior=train_label_distribution)
+    elif args.test_dist == "uniform":
+        dict_users_test = iid_updated(dataset_test, total_users, 0)
+    else:
+        raise NotImplementedError("test_dist should be dirichlet, consistent, or uniform")
 
     logging.warning(
         f"[+] total original data size: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}"
@@ -318,13 +396,20 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
             for test_only_class in test_only:
                 idxs = np.array([merged_targets[idx] == test_only_class for idx in dict_users_test[user_idx]])
                 test_only_class_idxs = dict_users_test[user_idx][idxs]  # dataset idx
-                if len(test_only_class_idxs) <= k:
-                    dict_users_test[user_idx] = dict_users_test[user_idx][~idxs]
-                else:
-                    random_idxs = np.random.choice(test_only_class_idxs, k, replace=False)  # dataset idx
-                    mask = np.isin(dict_users_test[user_idx], random_idxs)
-                    dict_users_test[user_idx] = dict_users_test[user_idx][~mask]
-                    dict_users_train[user_idx] = np.append(dict_users_train[user_idx], random_idxs)
+                # if len(test_only_class_idxs) <= k:
+                #     dict_users_test[user_idx] = dict_users_test[user_idx][~idxs]
+                # else:
+                #     random_idxs = np.random.choice(test_only_class_idxs, k, replace=False)  # dataset idx
+                #     mask = np.isin(dict_users_test[user_idx], random_idxs)
+                #     dict_users_test[user_idx] = dict_users_test[user_idx][~mask]
+                #     dict_users_train[user_idx] = np.append(dict_users_train[user_idx], random_idxs)
+
+                move_num = int(len(test_only_class_idxs) * k)
+                move_num = max(move_num, 1)
+                random_idxs = np.random.choice(test_only_class_idxs, move_num, replace=False)  # dataset idx
+                mask = np.isin(dict_users_test[user_idx], random_idxs)
+                dict_users_test[user_idx] = dict_users_test[user_idx][~mask]
+                dict_users_train[user_idx] = np.append(dict_users_train[user_idx], random_idxs)
 
         dataset_train = merged_dataset
         dataset_test = merged_dataset
@@ -370,7 +455,9 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
             for test_only_class in test_only:
                 idxs = np.array([merged_targets[idx] == test_only_class for idx in dict_users_test[user_idx]])
                 test_only_class_idxs = dict_users_test[user_idx][idxs]  # dataset idx
-                random_idxs = np.random.choice(test_only_class_idxs, 1, replace=False)  # dataset idx
+                copy_num = int(len(test_only_class_idxs) * k)
+                copy_num = max(copy_num, 1)
+                random_idxs = np.random.choice(test_only_class_idxs, copy_num, replace=False)  # dataset idx
                 dict_users_train[user_idx] = np.append(dict_users_train[user_idx], random_idxs)
 
         dataset_train = merged_dataset
@@ -392,11 +479,12 @@ def get_data(dataset, num_users, ood_users, alpha, args=None):
             f"[+] total data size after copy data: train {sum([len(dict_users_train[user]) for user in range(total_users)])}, test {sum([len(dict_users_test[user]) for user in range(total_users)])}"
         )
 
-    for i in dict_users_train.keys():
-        train_bin = torch.tensor(dataset_train.targets)[dict_users_train[i]].bincount()
-        test_bin = torch.tensor(dataset_test.targets)[dict_users_test[i]].bincount()
+    for i in [*range(3), *range(num_users, num_users + 3)]:
+        train_bin = torch.tensor(dataset_train.targets)[dict_users_train[i]].bincount(minlength=100)
+        test_bin = torch.tensor(dataset_test.targets)[dict_users_test[i]].bincount(minlength=100)
         logging.warning(f"[+] train_bin (client: {i}): \n{train_bin}")
         logging.warning(f"[+] test_bin  (client: {i}): \n{test_bin}")
+        logging.warning(f"[+] train_bin >= test_bin  (client: {i}): \n{train_bin >= test_bin}")
         logging.warning(f"================================================================")
 
     return dataset_train, dataset_test, dict_users_train, dict_users_test

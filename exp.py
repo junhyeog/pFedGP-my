@@ -14,7 +14,7 @@ def run(cmds, n, ilow=False, type=0, sleep=5, job_name=""):
         if type == 0:
             cmd = [f"sbatch -J {job_name} -n {n} -c 8 --exclude klimt,goya,haring,manet,hongdo {'--qos=ilow' if ilow else ''} --gres=gpu:normal:1 run_sbatch"]
         elif type == 1:
-            cmd = [f"sbatch -J {job_name} -n {n} -c 12 --exclude cerny,kandinsky,namjune,magritte {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 run_sbatch"]
+            cmd = [f"sbatch -J {job_name} -n {n} -c 12 --exclude basquiat {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 run_sbatch"]
         else:
             # cmd = [f"sbatch -J {job_name} -n {n} -c 80  --exclude haring,vermeer {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 --partition a6000 run_sbatch"]
             cmd = [f"sbatch -J {job_name} -n {n} -c 24 {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 --partition a6000 run_sbatch"]
@@ -44,22 +44,27 @@ def make_cmds(run_file_name, params):
         raise NotImplementedError
 
 
-params = {
-    "env": "bmfl",
-    "seed": 777,
-    "num-steps": 1000,
-    "num-clients": 130,
-    "num-novel-clients": 30,
-    "num-client-agg": 10,
-    "data-name": ["cifar100"],
-    "alpha": [0.5],
-    "exp-name": "copy_tune_2",
-    "n_trials": 16,
-}
+# params = {
+#     "env": "bmfl",
+#     "seed": 777,
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     # "get-data-type": [3, 4, 5, 6], # # 3: copy all test data
+#     # "get-data-type": [4, 5, 6], # # 3: copy all test data
+#     "get-data-type": [6], # # 3: copy all test data
+#     "alpha": [0.1, 0.5, 5.0],
+#     "data-name": ["cifar10", "cifar100"],
+#     "test_dist": ["dirichlet"],
+#     # "exp-name": "copy_all_1",
+#     "exp-name": "gdt_test_1",
+#     "n_trials": 16,
+# }
 
-cmds = make_cmds("main.py", params)
-for i in range(1):
-    run(cmds, n=1, ilow=0, type=1, sleep=5, job_name=f"{params['exp-name']}_nt:{params['n_trials']}")  # type = normal: 0, large: 1, a6000: 2
+# cmds = make_cmds("main.py", params)
+# for i in range(1):
+#     run(cmds, n=3, ilow=0, type=0, sleep=5, job_name=f"{params['exp-name']}_nt:{params['n_trials']}")  # type = normal: 0, large: 1, a6000: 2
 
 
 # params = {
@@ -78,3 +83,43 @@ for i in range(1):
 # cmds = make_cmds("main_adap.py", params)
 # for i in range(1):
 #     run(cmds, n=1, ilow=0, type=1, sleep=5, job_name=f"{params['exp-name']}_nt:{params['n_trials']}")  # type = normal: 0, large: 1, a6000: 2
+
+# params = {
+#     "env": "bmfl",
+#     "seed": 777,
+#     "num-steps": 1000,
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     "alpha": [0.1, 0.5, 5.0],
+#     "data-name": ["cifar100", "cifar10"],
+#     "get-data-type": [0], # # 3: copy all test data
+#     "test_dist": ["consistent"],
+#     "exp-name": "consistent_1",
+#     "n_trials": 7,
+# }
+
+# cmds = make_cmds("main.py", params)
+# for i in range(1):
+#     run(cmds, n=2, ilow=0, type=0, sleep=5, job_name=f"{params['exp-name']}_nt:{params['n_trials']}")  # type = normal: 0, large: 1, a6000: 2
+
+
+params = {
+    "env": "bmfl",
+    "seed": [777],
+    "num-steps": [500, 1000],
+    "num-clients": 130,
+    "num-novel-clients": 30,
+    "num-client-agg": 10,
+    "cali_reg_factor": [0, 0.1, 0.2],
+    "alpha": [5.0, 0.1],
+    "data-name": ["cifar10"],
+    "get-data-type": [0], # # 3: copy all test data
+    "test_dist": ["consistent"],
+    "exp-name": "debug_cali",
+    "n_trials": 1,
+}
+
+cmds = make_cmds("main.py", params)
+for i in range(1):
+    run(cmds, n=2, ilow=0, type=0, sleep=5, job_name=f"{params['exp-name']}_nt:{params['n_trials']}")  # type = normal: 0, large: 1, a6000: 2

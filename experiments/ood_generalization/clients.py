@@ -20,7 +20,7 @@ class GenBaseClients:
 
         set_seed(self.args.seed)
         logging.warning(f"[+] GenBaseClients(env={self.args.env}): set_seed({self.args.seed})")
-        self.train_loaders, self.val_loaders, self.test_loaders = create_generalization_loaders(
+        (self.train_loaders, self.val_loaders, self.test_loaders), self.pool_dataset, self.test_only_labels = create_generalization_loaders(
             self.data_name,
             self.data_path,
             n_train_users,
@@ -47,5 +47,6 @@ class GenBaseClients:
         logging.warning(f"[+] GenBaseClients(alpha={self.alpha}): (val)  : total={self.total_val_data}, mean={self.mean_val_data}, std={self.std_val_data}")
         logging.warning(f"[+] GenBaseClients(alpha={self.alpha}): (test) : total={self.total_test_data}, mean={self.mean_test_data}, std={self.std_test_data}")
 
+        
     def __len__(self):
         return self.n_clients
