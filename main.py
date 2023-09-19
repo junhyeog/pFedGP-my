@@ -86,16 +86,22 @@ parser.add_argument("--get-data-type", type=int, default=2)
 parser.add_argument("--sampler", type=str, default="TPE")
 parser.add_argument("--n_trials", type=int, default=4)
 parser.add_argument("--test_dist", type=str, choices=["dirichlet", "consistent", "uniform"])
+parser.add_argument("--pool_size", type=int, default=10)
+parser.add_argument("--pool_type", type=str, choices=["full", "min"])
 
 
 def main(args, trial):
+    set_logger()
+        
     # optuna params
     params = {
-        "lr": trial.suggest_float("lr", 0.01, 0.1, step=0.01),  # < 1
-        "wd": trial.suggest_float("wd", 0, 1e-3, step=1e-5),
-        "inner_steps": trial.suggest_int("inner_steps", 5, 5, step=2),
+        "lr": trial.suggest_float("lr", 0.05, 0.05, step=0.05),  # < 1
+        "wd": trial.suggest_float("wd", 1e-3, 1e-3, step=1e-3),
+        # "batch_size": trial.suggest_int("batch_size", 320, 320, step=64),
+        "inner_steps": trial.suggest_int("inner_steps", 1, 1, step=2),
         "num_gibbs_draws_train": trial.suggest_int("num_gibbs_draws_train", 20, 20, step=10),
         "num_gibbs_draws_test": trial.suggest_int("num_gibbs_draws_test", 30, 30, step=10),
+        # "pool_size": trial.suggest_int("pool_size", 10, 50, step=40),
     }
     # round float params
     for k, v in params.items():
@@ -104,9 +110,9 @@ def main(args, trial):
     # update args
     vars(args).update(params)
     # check args
-    print(f"[+] Args:")
+    logging.warning(f"[+] Args:")
     for k, v in vars(args).items():
-        print(f" - {k:20}: {v}")
+        logging.warning(f" - {k:20}: {v}")
     # args.trial = trial
     # # avoid duplicate sets
     # for previous_trial in trial.study.trials:
@@ -114,7 +120,6 @@ def main(args, trial):
     #         print(f"[+] Duplicated trial: {trial.params}, return {previous_trial.values}")
     #         return previous_trial.values
 
-    set_logger()
     set_seed(args.seed)
 
     device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
@@ -140,6 +145,8 @@ def main(args, trial):
     # exp_name += f"obj:{args.objective}_"
     exp_name += f"ngd_train:{args.num_gibbs_draws_train}_"
     exp_name += f"ngd_test:{args.num_gibbs_draws_test}_"
+    exp_name += f"ps:{args.pool_size}_"
+    exp_name += f"pt:{args.pool_type}_"
     exp_name += f"{args.uuid}_{trial.number}"
 
     args.out_dir = (Path(args.save_path) / exp_name).as_posix()
@@ -163,23 +170,15 @@ def main(args, trial):
                 curr_data = clients.val_loaders[client_id]
             else:
                 curr_data = clients.train_loaders[client_id]
-
-            if split == "train": 
-                GPs[client_id], label_map, X_train, Y_train = build_tree(clients, client_id)
-            else:
-                GPs[client_id], label_map, X_train, Y_train = build_tree_with_pool(clients, client_id)
-            GPs[client_id].eval()
-
-            if i==29:
-                import ipdb; ipdb.set_trace(context=5)
                 
+            if split != "train" and args.get_data_type == 10: 
+                GPs[client_id], label_map, X_train, Y_train = build_tree_with_pool(clients, client_id)
+            else:
+                GPs[client_id], label_map, X_train, Y_train = build_tree(clients, client_id)
+
             for batch_count, batch in enumerate(curr_data):
                 img, label = tuple(t.to(device) for t in batch)
                 Y_test = torch.tensor([label_map[l.item()] for l in label], dtype=label.dtype, device=label.device)
-                if set(Y_test.tolist()) - set(Y_train.tolist()) != set():
-                    ###
-                    import ipdb; ipdb.set_trace(context=5)
-                    ###
                 X_test = global_model(img)
                 loss, pred = GPs[client_id].forward_eval(X_train, Y_train, X_test, Y_test, is_first_iter)
                 running_loss += loss.item()
@@ -218,10 +217,10 @@ def main(args, trial):
             else:
                 curr_data = clients.train_loaders[client_id]
             
-            if split == "train": 
-                GPs[client_id], label_map, X_train, Y_train = build_tree(clients, client_id)
-            else:
+            if split != "train" and args.get_data_type == 10: 
                 GPs[client_id], label_map, X_train, Y_train = build_tree_with_pool(clients, client_id)
+            else:
+                GPs[client_id], label_map, X_train, Y_train = build_tree(clients, client_id)
             GPs[client_id].eval()
             
             reversed_label_map = {v: k for k, v in label_map.items()}
@@ -280,6 +279,14 @@ def main(args, trial):
 
             client_labels, client_counts = torch.unique(all_labels, return_counts=True)
             client_num_classes[client_id] = client_labels.shape[0]
+            
+            if args.get_data_type == 10:
+                if args.pool_type == "min":
+                    test_only_labels = clients.test_only_labels[client_id]
+                    client_num_classes[client_id] += len(test_only_labels)
+                elif args.pool_type == "full":
+                    client_num_classes[client_id] = num_classes
+
         return client_num_classes
 
     def client_counts_data(num_clients, split="train"):
@@ -369,7 +376,7 @@ def main(args, trial):
                 
         for k, batch in enumerate(clients.pool_dataset):
             train_data, clf_label = batch
-            if clf_label in clients.test_only_labels[client_id]:
+            if (args.pool_type=="min" and clf_label in clients.test_only_labels[client_id]) or (args.pool_type=="full"):
                 train_data = train_data.to(device)
                 z = net(train_data.unsqueeze(0))
                 X = torch.cat((X, z), dim=0)

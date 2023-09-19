@@ -432,7 +432,7 @@ def create_generalization_loaders(data_name, data_root, num_train_users, num_gen
         
         # build pool loader
         # k data items for each class
-        k = 10
+        k = args.pool_size
         pool_idxs = []
         num_classes = len(train_dataset.classes)
         labels = torch.tensor(train_dataset.targets)
@@ -444,6 +444,7 @@ def create_generalization_loaders(data_name, data_root, num_train_users, num_gen
             pool_idxs.append(idxs[random_idxs_idxs])
         
         pool_dataset = Subset(train_dataset, np.concatenate(pool_idxs))
+        logging.warning(f"[+] pool dataset size with (k: {k}): {len(pool_dataset)}")
         # pool_loader = DataLoader(pool_dataset, bz, shuffle=True, num_workers=0)
         return generalization_loaders, pool_dataset, test_only_labels
 

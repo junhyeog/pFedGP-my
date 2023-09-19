@@ -12,9 +12,9 @@ def run(cmds, n, ilow=False, type=0, sleep=5, job_name=""):
         print(cmd)
     for i in range(0, len(cmds), n):
         if type == 0:
-            cmd = [f"sbatch -J {job_name} -n {n} -c 8 --exclude klimt,goya,haring,manet,hongdo {'--qos=ilow' if ilow else ''} --gres=gpu:normal:1 run_sbatch"]
+            cmd = [f"sbatch -J {job_name} -n {n} -c 12 --exclude klimt,goya,haring,manet,hongdo {'--qos=ilow' if ilow else ''} --gres=gpu:normal:1 run_sbatch"]
         elif type == 1:
-            cmd = [f"sbatch -J {job_name} -n {n} -c 12 --exclude basquiat {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 run_sbatch"]
+            cmd = [f"sbatch -J {job_name} -n {n} -c 12 {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 run_sbatch"]
         else:
             # cmd = [f"sbatch -J {job_name} -n {n} -c 80  --exclude haring,vermeer {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 --partition a6000 run_sbatch"]
             cmd = [f"sbatch -J {job_name} -n {n} -c 24 {'--qos=ilow' if ilow else ''} --gres=gpu:large:1 --partition a6000 run_sbatch"]
@@ -104,22 +104,46 @@ def make_cmds(run_file_name, params):
 #     run(cmds, n=2, ilow=0, type=0, sleep=5, job_name=f"{params['exp-name']}_nt:{params['n_trials']}")  # type = normal: 0, large: 1, a6000: 2
 
 
+# params = {
+#     "env": "bmfl",
+#     "seed": [777],
+#     "num-steps": [1000],
+#     "num-clients": 130,
+#     "num-novel-clients": 30,
+#     "num-client-agg": 10,
+#     # "alpha": [5.0, 0.5, 0.1],
+#     "alpha": [5.0, 5.0, 5.0],
+#     "data-name": ["cifar100"],
+#     "get-data-type": [10],
+#     "test_dist": ["dirichlet"],
+#     "exp-name": "pool_size_test_1",
+#     "n_trials": 1,
+# }
+
+# cmds = make_cmds("main.py", params)
+# for i in range(1):
+#     run(cmds, n=3, ilow=0, type=0, sleep=5, job_name=f"{params['exp-name']}_nt:{params['n_trials']}")  # type = normal: 0, large: 1, a6000: 2
+
+
 params = {
     "env": "bmfl",
     "seed": [777],
-    "num-steps": [500, 1000],
+    "num-steps": [1000],
+    "eval-every": [100],
     "num-clients": 130,
     "num-novel-clients": 30,
     "num-client-agg": 10,
-    "cali_reg_factor": [0, 0.1, 0.2],
-    "alpha": [5.0, 0.1],
-    "data-name": ["cifar10"],
-    "get-data-type": [0], # # 3: copy all test data
-    "test_dist": ["consistent"],
-    "exp-name": "debug_cali",
+    "data-name": ["cifar100"], # cifar10 -> normal n=1
+    "get-data-type": [10],
+    "test_dist": ["dirichlet"],
+    "batch-size": [512], # 320
+    "pool_size": [30], # 50
+    "pool_type": ["full", "min"],
+    "alpha": [5.0, 0.5, 0.1],
+    "exp-name": "pool_is1",
     "n_trials": 1,
 }
 
 cmds = make_cmds("main.py", params)
 for i in range(1):
-    run(cmds, n=2, ilow=0, type=0, sleep=5, job_name=f"{params['exp-name']}_nt:{params['n_trials']}")  # type = normal: 0, large: 1, a6000: 2
+    run(cmds, n=1, ilow=0, type=1, sleep=5, job_name=f"{params['exp-name']}_nt:{params['n_trials']}")  # type = normal: 0, large: 1, a6000: 2
